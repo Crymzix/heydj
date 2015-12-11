@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">HeyDJ</string>
+    <string name="google_nearby_api_key">AIzaSyA93qYB3o_bQD--txlno13KdkX57ZQuYlc</string>
+    <string name="pubnub_publish_api_key">pub-c-a254a349-2ff6-4db6-bc74-33ef1d13500e </string>
+    <string name="pubnub_subscribe_api_key">sub-c-91c224ca-9da1-11e5-bdb6-0619f8945a4f </string>
+    <string name="spotify_client_id">7859065041164a61917d5e903777ef3a</string>
+    <string name="spotify_redirect_uri">example.com://callback</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_settings">Settings</string>
+</resources>
