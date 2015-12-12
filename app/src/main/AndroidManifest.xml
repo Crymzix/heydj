@@ -17,6 +17,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTask"
             android:label="@string/app_name"
             android:theme="@style/AppTheme.NoActionBar">
             <intent-filter>
@@ -29,6 +30,50 @@
         <activity
             android:name="com.spotify.sdk.android.authentication.LoginActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+
+        <!-- Widget/Notification Now Playing Activity Broadcast Receiver -->
+
+        <receiver android:name=".receivers.LaunchNowPlayingBroadcastReceiver" >
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.LAUNCH_NOW_PLAYING_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Widget/Notification Play/Pause Broadcast Receiver -->
+
+        <receiver android:name=".receivers.PlayPauseBroadcastReceiver" >
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.PLAY_PAUSE_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Widget/Notification Previous Broadcast Receiver -->
+
+        <receiver android:name=".receivers.PreviousBroadcastReceiver" >
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.PREVIOUS_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Widget/Notification Next Broadcast Receiver -->
+
+        <receiver android:name=".receivers.NextBroadcastReceiver" >
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.NEXT_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Stop Service Broadcast Receiver -->
+
+        <receiver android:name=".receivers.StopServiceBroadcastReceiver" >
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.STOP_SERVICE" />
+            </intent-filter>
+        </receiver>
+
+        <service android:name=".services.NearbyService"/>
+        <service android:name=".services.AudioPlaybackService"/>
+
     </application>
 
 </manifest>

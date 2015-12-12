@@ -6,7 +6,7 @@ android {
 
     defaultConfig {
         applicationId "ca.ubc.heydj"
-        minSdkVersion 15
+        minSdkVersion 16
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
@@ -40,4 +40,5 @@ dependencies {
     compile 'com.google.android.gms:play-services-nearby:8.3.0'
     compile 'com.pubnub:pubnub-android:3.7.5'
     compile 'io.realm:realm-android:0.86.0'
+    compile 'de.greenrobot:eventbus:2.4.0'
 }
