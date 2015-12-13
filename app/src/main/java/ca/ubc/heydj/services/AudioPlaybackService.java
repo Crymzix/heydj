@@ -59,7 +59,7 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
     private Context mContext;
 
-    private Handler mHandler = new Handler();
+    private Handler mHandler;
     private Runnable mRunnable;
 
 

@@ -1,6 +1,7 @@
 package ca.ubc.heydj.nowplaying;
 
 import android.content.Intent;
+import android.content.IntentSender;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
@@ -13,16 +14,19 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 
+import com.google.android.gms.common.api.Status;
 import com.spotify.sdk.android.player.PlayerState;
 
 import java.util.List;
 
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
+import ca.ubc.heydj.events.NearbyEvent;
 import ca.ubc.heydj.services.NearbyHostService;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
@@ -32,6 +36,8 @@ import kaaes.spotify.webapi.android.models.SavedTrack;
  */
 public class NowPlayingActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener, View.OnClickListener{
 
+    private static final String TAG = NowPlayingActivity.class.getSimpleName();
+
     public static final String CURRENT_TRACK_POSITION_KEY = "current_position_key";
     public static final String SAVED_TRACKS_KEY = "saved_tracks_key";
 
@@ -39,6 +45,8 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
 
     private FloatingActionButton mPlayButton;
     private FloatingActionButton mPauseButton;
+
+    private boolean mResolvingError = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -133,14 +141,18 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
                 break;
 
             case R.id.host_button:
-                //startService(new Intent(getApplicationContext(), NearbyHostService.class));
+                startService(new Intent(getApplicationContext(), NearbyHostService.class));
                 //EventBus.getDefault().postSticky();
                 break;
 
         }
     }
 
-    // Update UI based on player state
+    /**
+     * Updates UI based on Player state
+     *
+     * @param playerState
+     */
     public void onEvent(PlayerState playerState) {
 
         if (mPlayButton != null && mPauseButton != null) {
@@ -152,9 +164,45 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
                 mPlayButton.setVisibility(View.VISIBLE);
             }
         }
-
-
     }
+
+    /**
+     * Displays the Nearby opt-in dialog when necessary.
+     * Triggered by the NearbyHostService
+     *
+     * @param status
+     */
+    public void onEvent(Status status) {
+
+        if (!mResolvingError) {
+            try {
+                status.startResolutionForResult(this,
+                        NearbyHostService.REQUEST_NEARBY_RESOLVE_ERROR);
+                mResolvingError = true;
+            } catch (IntentSender.SendIntentException e) {
+                Log.e(TAG, " failed with exception: " + e);
+            }
+        } else {
+            Log.i(TAG, " failed with status: " + status
+                    + " while resolving error.");
+        }
+    }
+
+    // This is called in response to a button tap in the Nearby permission dialog.
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == NearbyHostService.REQUEST_NEARBY_RESOLVE_ERROR) {
+            mResolvingError = false;
+            if (resultCode == RESULT_OK) {
+                EventBus.getDefault().post(new NearbyEvent());
+            } else {
+                // This may mean that user had rejected to grant nearby permission.
+                Log.i(TAG, "Failed to resolve error with code " + resultCode);
+            }
+        }
+    }
+
 
     private class TracksPagerAdapter extends FragmentStatePagerAdapter {
 
