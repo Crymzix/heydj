@@ -27,6 +27,7 @@ import com.spotify.sdk.android.player.Spotify;
 import java.util.ArrayList;
 import java.util.List;
 
+import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
@@ -100,21 +101,6 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
                 mFirstRun = false;
                 Log.i(TAG, "Spotify player initialized");
 
-                // Repeatedly broadcast player state to subscribers
-                mRunnable = new Runnable() {
-                    @Override
-                    public void run() {
-                        mPlayer.getPlayerState(new PlayerStateCallback() {
-                            @Override
-                            public void onPlayerState(PlayerState playerState) {
-                                EventBus.getDefault().post(playerState);
-                                mHandler.postDelayed(mRunnable, 1000);
-                            }
-                        });
-                    }
-                };
-                mHandler.postDelayed(mRunnable, 1000);
-
                 // In the case that this service was created AFTER the event was posted
                 PlayTrackEvent playTrackEvent = EventBus.getDefault().removeStickyEvent(PlayTrackEvent.class);
                 if (playTrackEvent != null) {
@@ -173,7 +159,12 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
         }
     }
 
-    private void playSpotifyTrack(PlayTrackEvent playTrackEvent) {
+    /**
+     * Plays a track in a given playlist
+     *
+     * @param playTrackEvent
+     */
+    private void playSpotifyTrack(final PlayTrackEvent playTrackEvent) {
 
         // Create list of Spotify URIs and pass it to the player
         List<String> spotifyTrackUris = new ArrayList<>();
@@ -185,6 +176,25 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
         playConfig.withTrackIndex(playTrackEvent.getCurrentTrackIndex());
 
         if (mPlayer != null) {
+            // Repeatedly broadcast player state to (internal) subscribers
+            mRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    mPlayer.getPlayerState(new PlayerStateCallback() {
+                        @Override
+                        public void onPlayerState(PlayerState playerState) {
+                            AudioFeedbackEvent audioFeedbackEvent = new AudioFeedbackEvent();
+                            audioFeedbackEvent.setPlayerState(playerState);
+                            audioFeedbackEvent.setCurrentTrackIndex(playTrackEvent.getCurrentTrackIndex());
+                            audioFeedbackEvent.setPlaylist(playTrackEvent.getUserTracks());
+                            EventBus.getDefault().post(audioFeedbackEvent);
+                            mHandler.postDelayed(mRunnable, 1000);
+                        }
+                    });
+                }
+            };
+            mHandler.postDelayed(mRunnable, 1000);
+
             mIsPlaying = true;
             mPlayer.play(playConfig);
             startForeground(mNotificationId, buildNotification());

@@ -2,7 +2,6 @@ package ca.ubc.heydj.nowplaying;
 
 import android.content.Intent;
 import android.content.IntentSender;
-import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -16,18 +15,17 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
 
 import com.google.android.gms.common.api.Status;
-import com.spotify.sdk.android.player.PlayerState;
 
 import java.util.List;
 
 import ca.ubc.heydj.R;
+import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.NearbyEvent;
-import ca.ubc.heydj.services.NearbyHostService;
+import ca.ubc.heydj.services.NearbyService;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
@@ -45,6 +43,8 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
 
     private FloatingActionButton mPlayButton;
     private FloatingActionButton mPauseButton;
+    private ViewPager mTrackPager;
+    private TracksPagerAdapter mTracksAdapter;
 
     private boolean mResolvingError = false;
 
@@ -77,14 +77,15 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
         previousButton.setOnClickListener(this);
         ImageButton hostButton = (ImageButton) findViewById(R.id.host_button);
         hostButton.setOnClickListener(this);
-        ViewPager trackPager = (ViewPager) findViewById(R.id.track_pager);
+        mTrackPager = (ViewPager) findViewById(R.id.track_pager);
 
         mCurrentTrackIndex = getIntent().getIntExtra(CURRENT_TRACK_POSITION_KEY, 0);
         List<SavedTrack> savedTracks = getIntent().getParcelableArrayListExtra(SAVED_TRACKS_KEY);
 
-        trackPager.setAdapter(new TracksPagerAdapter(getSupportFragmentManager(), savedTracks));
-        trackPager.setCurrentItem(mCurrentTrackIndex, true);
-        trackPager.addOnPageChangeListener(this);
+        mTracksAdapter = new TracksPagerAdapter(getSupportFragmentManager(), savedTracks);
+        mTrackPager.setAdapter(mTracksAdapter);
+        mTrackPager.setCurrentItem(mCurrentTrackIndex, true);
+        mTrackPager.addOnPageChangeListener(this);
 
     }
 
@@ -104,7 +105,7 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
 
         if (position < mCurrentTrackIndex) {
             EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PREVOUS));
-        } else {
+        } else if (position > mCurrentTrackIndex) {
             EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.NEXT));
         }
         mCurrentTrackIndex = position;
@@ -133,16 +134,27 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
                 break;
 
             case R.id.next_button:
-                EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.NEXT));
+
+                int incrementIndex = mTrackPager.getCurrentItem();
+                incrementIndex++;
+                if (incrementIndex < mTracksAdapter.getCount()) {
+                    mTrackPager.setCurrentItem(incrementIndex, true);
+                }
                 break;
 
             case R.id.previous_button:
-                EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PREVOUS));
+
+                int decrementIndex = mTrackPager.getCurrentItem();
+                decrementIndex--;
+                if (decrementIndex >= 0 ) {
+                    mTrackPager.setCurrentItem(decrementIndex, true);
+                }
                 break;
 
             case R.id.host_button:
-                startService(new Intent(getApplicationContext(), NearbyHostService.class));
-                //EventBus.getDefault().postSticky();
+                Intent nearbyService = new Intent(this, NearbyService.class);
+                nearbyService.putExtra(NearbyService.IS_HOST_KEY, true);
+                startService(nearbyService);
                 break;
 
         }
@@ -151,12 +163,12 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
     /**
      * Updates UI based on Player state
      *
-     * @param playerState
+     * @param audioFeedbackEvent
      */
-    public void onEvent(PlayerState playerState) {
+    public void onEvent(AudioFeedbackEvent audioFeedbackEvent) {
 
         if (mPlayButton != null && mPauseButton != null) {
-            if (playerState.playing) {
+            if (audioFeedbackEvent.getPlayerState().playing) {
                 mPauseButton.setVisibility(View.VISIBLE);
                 mPlayButton.setVisibility(View.INVISIBLE);
             } else {
@@ -177,7 +189,7 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
         if (!mResolvingError) {
             try {
                 status.startResolutionForResult(this,
-                        NearbyHostService.REQUEST_NEARBY_RESOLVE_ERROR);
+                        NearbyService.REQUEST_NEARBY_RESOLVE_ERROR);
                 mResolvingError = true;
             } catch (IntentSender.SendIntentException e) {
                 Log.e(TAG, " failed with exception: " + e);
@@ -192,7 +204,7 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == NearbyHostService.REQUEST_NEARBY_RESOLVE_ERROR) {
+        if (requestCode == NearbyService.REQUEST_NEARBY_RESOLVE_ERROR) {
             mResolvingError = false;
             if (resultCode == RESULT_OK) {
                 EventBus.getDefault().post(new NearbyEvent());

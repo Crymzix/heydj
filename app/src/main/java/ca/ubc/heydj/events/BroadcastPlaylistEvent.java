@@ -1,22 +1,22 @@
 package ca.ubc.heydj.events;
 
+import com.google.gson.JsonObject;
+
+import org.json.JSONObject;
+
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 
 import kaaes.spotify.webapi.android.models.Track;
 
 /**
- * Created by Chris Li on 12/12/2015.
+ * Created by Chris Li on 12/13/2015.
  */
-public class BroadcastPlaylistEvent {
+public class BroadcastPlaylistEvent implements Serializable {
 
-    private List<Track> tracks;
-
-
-    public List<Track> getTracks() {
-        return tracks;
-    }
-
-    public void setTracks(List<Track> tracks) {
-        this.tracks = tracks;
-    }
+    public List<Track> playlist;
+    public String host_id;
+    public int current_track_index;
+    public int duration_ms;
 }

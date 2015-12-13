@@ -27,7 +27,7 @@ import java.util.List;
 
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.NearbyEvent;
-import ca.ubc.heydj.services.NearbyHostService;
+import ca.ubc.heydj.services.NearbyService;
 import ca.ubc.heydj.spotify.SpotifyLibraryFragment;
 import ca.ubc.heydj.services.AudioPlaybackService;
 import de.greenrobot.event.EventBus;
@@ -88,7 +88,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onDestroy() {
-        stopService(new Intent(this, NearbyHostService.class));
+        stopService(new Intent(this, NearbyService.class));
         stopService(new Intent(this, AudioPlaybackService.class));
         EventBus.getDefault().unregister(this);
         super.onDestroy();
@@ -134,13 +134,18 @@ public class MainActivity extends AppCompatActivity
             AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, data);
             if (response.getType() == AuthenticationResponse.Type.TOKEN) {
                 mSpotifyAccessToken = response.getAccessToken();
+
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.container, new SpotifyLibraryFragment())
+                        .commit();
+
                 Intent audioPlayService = new Intent(this, AudioPlaybackService.class);
                 audioPlayService.putExtra(SPOTIFY_ACCESS_TOKEN_KEY, mSpotifyAccessToken);
                 startService(audioPlayService);
             }
         }
 
-        if (resultCode == RESULT_OK && requestCode == NearbyHostService.REQUEST_NEARBY_RESOLVE_ERROR) {
+        if (resultCode == RESULT_OK && requestCode == NearbyService.REQUEST_NEARBY_RESOLVE_ERROR) {
             mResolvingError = false;
             EventBus.getDefault().post(new NearbyEvent());
         } else {
@@ -161,7 +166,7 @@ public class MainActivity extends AppCompatActivity
         if (!mResolvingError) {
             try {
                 status.startResolutionForResult(this,
-                        NearbyHostService.REQUEST_NEARBY_RESOLVE_ERROR);
+                        NearbyService.REQUEST_NEARBY_RESOLVE_ERROR);
                 mResolvingError = true;
             } catch (IntentSender.SendIntentException e) {
                 Log.e(TAG, " failed with exception: " + e);

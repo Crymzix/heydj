@@ -3,8 +3,8 @@ package ca.ubc.heydj.services;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -16,40 +16,53 @@ import com.google.android.gms.common.api.Status;
 import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.messages.Message;
 import com.google.android.gms.nearby.messages.MessageListener;
+import com.google.gson.Gson;
 
-import java.util.Random;
-import java.util.UUID;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import ca.ubc.heydj.events.AudioFeedbackEvent;
+import ca.ubc.heydj.events.BroadcastPlaylistEvent;
 import ca.ubc.heydj.events.NearbyEvent;
 import de.greenrobot.event.EventBus;
 
 /**
+ * Service class that takes care of broadcasting the playlist
+ * and receiving changes to the playlist.
+ *
  * Created by Chris Li on 12/11/2015.
  */
-public class NearbyHostService extends Service implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
+public class NearbyService extends Service implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener {
 
-    private static final String TAG = NearbyHostService.class.getSimpleName();
+    private static final String TAG = NearbyService.class.getSimpleName();
+    public static final String IS_HOST_KEY = "is_host_key";
     public static final int REQUEST_NEARBY_RESOLVE_ERROR = 131;
 
     private GoogleApiClient mGoogleApiClient;
     private MessageListener mMessageListener;
     private Message mMessage;
+    private Gson mGson;
 
-    private Handler mHandler;
-    private Runnable mRunnable;
-
-    private String uniqueHostId;
+    private boolean mIsHost = false;
+    private String mUniqueHostId;
+    private Set<String> mHostIds;
+    private Set<String> mSubscriberIds;
 
     @Override
     public void onCreate() {
         super.onCreate();
         EventBus.getDefault().register(this);
-        mHandler = new Handler();
+        mGson = new Gson();
+        mHostIds = new HashSet<>();
+        mSubscriberIds = new HashSet<>();
 
-        uniqueHostId = UUID.randomUUID().toString();
+        mUniqueHostId = Settings.Secure.getString(this.getContentResolver(),
+                Settings.Secure.ANDROID_ID);
 
-        String testVar = " Hello";
-        mMessage = new Message(testVar.getBytes());
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(Nearby.MESSAGES_API)
                 .addConnectionCallbacks(this)
@@ -58,8 +71,13 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
         mMessageListener = new MessageListener() {
             @Override
             public void onFound(Message message) {
-                String stringMsg = new String(message.getContent());
-                Log.i(TAG, "Received: " + stringMsg);
+                Log.i(TAG, "Received: " + message.describeContents());
+                String jsonMessage = new String (message.getContent());
+                BroadcastPlaylistEvent receivedBroadcastPlaylist = mGson.fromJson(jsonMessage, BroadcastPlaylistEvent.class);
+                if (!mHostIds.contains(receivedBroadcastPlaylist.host_id)) {
+                    mHostIds.add(receivedBroadcastPlaylist.host_id);
+                    EventBus.getDefault().post(receivedBroadcastPlaylist);
+                }
             }
         };
     }
@@ -68,7 +86,9 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
     public int onStartCommand(Intent intent, int flags, int startId) {
         super.onStartCommand(intent, flags, startId);
 
-        Log.i(TAG, "Started");
+        if (intent != null) {
+            mIsHost = intent.getBooleanExtra(IS_HOST_KEY, false);
+        }
 
         if (!mGoogleApiClient.isConnected()) {
             mGoogleApiClient.connect();
@@ -83,8 +103,10 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
 
         if (mGoogleApiClient.isConnected()) {
             // Clean up when the service is destroyed
-            Nearby.Messages.unpublish(mGoogleApiClient, mMessage)
-                    .setResultCallback(new ErrorCheckingCallback("unpublish()"));
+            if (mIsHost) {
+                Nearby.Messages.unpublish(mGoogleApiClient, mMessage)
+                        .setResultCallback(new ErrorCheckingCallback("unpublish()"));
+            }
             Nearby.Messages.unsubscribe(mGoogleApiClient, mMessageListener)
                     .setResultCallback(new ErrorCheckingCallback("unsubscribe()"));
         }
@@ -92,7 +114,6 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
         mGoogleApiClient.disconnect();
         mGoogleApiClient = null;
         EventBus.getDefault().unregister(this);
-        mHandler.removeCallbacks(mRunnable);
         super.onDestroy();
     }
 
@@ -108,30 +129,26 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
                 new ErrorCheckingCallback("getPermissionStatus", new Runnable() {
                     @Override
                     public void run() {
-                        publishPlaylist();
+                        subscribe();
                     }
                 })
         );
 
     }
 
-    private void publishPlaylist() {
-        mRunnable = new Runnable() {
-            @Override
-            public void run() {
-                String testVar = " Hello";
-                mMessage = new Message(testVar.getBytes());
-                Nearby.Messages.publish(mGoogleApiClient, mMessage)
-                        .setResultCallback(new ResultCallback<Status>() {
-                            @Override
-                            public void onResult(Status status) {
-                                Log.i(TAG, "publish: " + status.describeContents());
-                                mHandler.postDelayed(mRunnable, 1000);
-                            }
-                        });
-            }
-        };
-        mHandler.postDelayed(mRunnable, 1000);
+    private void publishPlaylist(String broadcastString) {
+
+        mMessage = new Message(broadcastString.getBytes());
+        Nearby.Messages.publish(mGoogleApiClient, mMessage)
+                .setResultCallback(new ResultCallback<Status>() {
+                    @Override
+                    public void onResult(Status status) {
+                        Log.i(TAG, "publish: " + status.describeContents());
+                    }
+                });
+    }
+
+    public void subscribe() {
         Nearby.Messages.subscribe(mGoogleApiClient, mMessageListener)
                 .setResultCallback(new ResultCallback<Status>() {
                     @Override
@@ -143,7 +160,27 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
 
 
     public void onEvent(NearbyEvent nearbyEvent) {
-        publishPlaylist();
+        subscribe();
+    }
+
+    /**
+     * Broadcast the playlist to all nearby devices
+     *
+     * @param audioFeedbackEvent
+     */
+    public void onEvent(AudioFeedbackEvent audioFeedbackEvent) {
+
+        if (audioFeedbackEvent.getPlayerState().playing && mIsHost) {
+
+            BroadcastPlaylistEvent broadcastPlaylistEvent = new BroadcastPlaylistEvent();
+            broadcastPlaylistEvent.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
+            broadcastPlaylistEvent.host_id = mUniqueHostId;
+            broadcastPlaylistEvent.duration_ms = audioFeedbackEvent.getPlayerState().positionInMs;
+            broadcastPlaylistEvent.playlist = audioFeedbackEvent.getTracks();
+
+            String broadcastJSONString = mGson.toJson(broadcastPlaylistEvent);
+            publishPlaylist(broadcastJSONString);
+        }
     }
 
     @Override
@@ -159,7 +196,7 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
 
     /**
      * A simple ResultCallback that logs when errors occur.
-     * It also displays the Nearby opt-in dialog when necessary.
+     * It also triggers the Nearby opt-in dialog when necessary.
      */
     private class ErrorCheckingCallback implements ResultCallback<Status> {
         private final String method;
@@ -190,7 +227,6 @@ public class NearbyHostService extends Service implements GoogleApiClient.Connec
                     Log.e(TAG, method + " failed with : " + status);
                 }
             }
-
         }
     }
 

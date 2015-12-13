@@ -4,23 +4,20 @@
     android:background="@android:color/black"
     android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/status_text"
-        android:textSize="18sp"
-        android:textColor="@android:color/white"
-        android:layout_centerVertical="true"
+    <ProgressBar
+        android:layout_marginTop="35dp"
         android:layout_centerHorizontal="true"
+        style="?android:attr/progressBarStyleLarge"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:id="@+id/progressBar" />
 
-    <android.support.design.widget.FloatingActionButton
-        android:id="@+id/scan_button"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentRight="true"
-        android:layout_margin="15dp"
-        android:src="@drawable/ic_hosts"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content" />
+    <android.support.v7.widget.RecyclerView
+        android:visibility="gone"
+        android:id="@+id/hosts_recyclerview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
+    </android.support.v7.widget.RecyclerView>
 
 </RelativeLayout>

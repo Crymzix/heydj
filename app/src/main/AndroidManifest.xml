@@ -75,8 +75,7 @@
             </intent-filter>
         </receiver>
 
-        <service android:name=".services.NearbyHostService"/>
-        <service android:name=".services.NearbyListenerService"/>
+        <service android:name=".services.NearbyService"/>
         <service android:name=".services.AudioPlaybackService"/>
 
     </application>
