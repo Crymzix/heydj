@@ -1,6 +1,9 @@
 package ca.ubc.heydj.events;
 
 /**
+ * The AudioPlaybackService is subscribed to this event and
+ * will change audio controls accordingly
+ *
  * Created by Chris Li on 12/12/2015.
  */
 public class AudioPlaybackEvent {

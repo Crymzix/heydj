@@ -23,13 +23,13 @@ public class TracksAdapter extends RecyclerView.Adapter<TracksAdapter.ViewHolder
     private Context mContext;
     private LayoutInflater mLayoutInflater;
     private List<SavedTrack> mTracks;
+    private OnItemClickListener mOnItemClickListener = null;
 
     public TracksAdapter(Context context, List<SavedTrack> tracks) {
         this.mContext = context;
         this.mLayoutInflater = LayoutInflater.from(context);
         this.mTracks = tracks;
     }
-
 
     @Override
     public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -42,9 +42,17 @@ public class TracksAdapter extends RecyclerView.Adapter<TracksAdapter.ViewHolder
     @Override
     public void onBindViewHolder(ViewHolder holder, final int position) {
 
-        Track track = mTracks.get(position).track;
+        final Track track = mTracks.get(position).track;
         holder.trackTitle.setText(track.name);
         holder.trackArtist.setText(track.artists.get(0).name);
+        holder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mOnItemClickListener != null) {
+                    mOnItemClickListener.onItemClick(position, track);
+                }
+            }
+        });
 
     }
 
@@ -58,8 +66,16 @@ public class TracksAdapter extends RecyclerView.Adapter<TracksAdapter.ViewHolder
         return mTracks.size();
     }
 
+    public SavedTrack getTrack(int position) {
+        return mTracks.get(position);
+    }
+
     public List<SavedTrack> getSavedTracks() {
         return mTracks;
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.mOnItemClickListener = listener;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -72,6 +88,10 @@ public class TracksAdapter extends RecyclerView.Adapter<TracksAdapter.ViewHolder
             trackTitle = (TextView) v.findViewById(R.id.track_title);
             trackArtist = (TextView) v.findViewById(R.id.track_artist);
         }
+    }
+
+    public interface OnItemClickListener {
+        void onItemClick(int position, Track selectedTrack);
     }
 
 }

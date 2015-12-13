@@ -7,6 +7,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
 import android.support.v7.app.NotificationCompat;
@@ -16,6 +17,7 @@ import android.widget.RemoteViews;
 
 import com.spotify.sdk.android.player.Config;
 import com.spotify.sdk.android.player.ConnectionStateCallback;
+import com.spotify.sdk.android.player.PlayConfig;
 import com.spotify.sdk.android.player.Player;
 import com.spotify.sdk.android.player.PlayerNotificationCallback;
 import com.spotify.sdk.android.player.PlayerState;
@@ -25,7 +27,7 @@ import com.spotify.sdk.android.player.Spotify;
 import java.util.ArrayList;
 import java.util.List;
 
-import ca.ubc.heydj.MainActivity;
+import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.PlayTrackEvent;
@@ -42,39 +44,45 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     private static final String TAG = AudioPlaybackService.class.getSimpleName();
 
     public static final int mNotificationId = 1156;
-    private NotificationCompat.Builder mNotificationBuilder;
     private NotificationManager mNotificationManager;
-
 
     public static final String LAUNCH_NOW_PLAYING_ACTION = "ca.ubc.heydj.player.LAUNCH_NOW_PLAYING_ACTION";
     public static final String PREVIOUS_ACTION = "ca.ubc.heydj.player.PREVIOUS_ACTION";
     public static final String PLAY_PAUSE_ACTION = "ca.ubc.heydj.player.PLAY_PAUSE_ACTION";
-    public static final String NEXT_ACTION = "ca.ubc.heydj.NEXT_ACTION";
+    public static final String NEXT_ACTION = "ca.ubc.heydj.player.NEXT_ACTION";
     public static final String STOP_SERVICE = "ca.ubc.heydj.player.STOP_SERVICE";
 
     private Player mPlayer;
 
-    private boolean mFirstStart = false;
+    private boolean mFirstRun = true;
     private boolean mIsPlaying = false;
 
     private Context mContext;
+
+    private Handler mHandler = new Handler();
+    private Runnable mRunnable;
+
 
     @Override
     public void onCreate() {
         super.onCreate();
         mContext = getApplicationContext();
+        mHandler = new Handler();
         mNotificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         EventBus.getDefault().register(this);
+        mFirstRun = true;
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
-        String spotifyAccessToken = intent.getStringExtra(MainActivity.SPOTIFY_ACCESS_TOKEN_KEY);
-        if (spotifyAccessToken != null) {
-            setupSpotifyPlayer(spotifyAccessToken);
+        if (intent != null) {
+            String spotifyAccessToken = intent.getStringExtra(MainActivity.SPOTIFY_ACCESS_TOKEN_KEY);
+            if (spotifyAccessToken != null && mFirstRun) {
+                setupSpotifyPlayer(spotifyAccessToken);
+            }
         } else {
-            stopSelf();
+            Log.i(TAG, "No new intent data, service already started.");
         }
 
         return START_STICKY;
@@ -89,7 +97,29 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
                 mPlayer.addConnectionStateCallback(AudioPlaybackService.this);
                 mPlayer.addPlayerNotificationCallback(AudioPlaybackService.this);
                 mPlayer.getPlayerState(AudioPlaybackService.this);
+                mFirstRun = false;
                 Log.i(TAG, "Spotify player initialized");
+
+                // Repeatedly broadcast player state to subscribers
+                mRunnable = new Runnable() {
+                    @Override
+                    public void run() {
+                        mPlayer.getPlayerState(new PlayerStateCallback() {
+                            @Override
+                            public void onPlayerState(PlayerState playerState) {
+                                EventBus.getDefault().post(playerState);
+                                mHandler.postDelayed(mRunnable, 1000);
+                            }
+                        });
+                    }
+                };
+                mHandler.postDelayed(mRunnable, 1000);
+
+                // In the case that this service was created AFTER the event was posted
+                PlayTrackEvent playTrackEvent = EventBus.getDefault().removeStickyEvent(PlayTrackEvent.class);
+                if (playTrackEvent != null) {
+                    playSpotifyTrack(playTrackEvent);
+                }
             }
 
             @Override
@@ -100,22 +130,7 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     }
 
     public void onEvent(PlayTrackEvent playTrackEvent) {
-        Log.i(TAG, "Play tracks event");
-
-        // Create list of Spotify URIs and pass it to the player
-        List<String> mSpotifyTrackUris = new ArrayList<>();
-        for (SavedTrack savedTrack : playTrackEvent.getUserTracks()) {
-            mSpotifyTrackUris.add("spotify:track:" + savedTrack.track.id);
-        }
-
-        if (mPlayer != null) {
-            mPlayer.play(mSpotifyTrackUris);
-
-            if (!mFirstStart) {
-                startForeground(mNotificationId, buildNotification());
-                mFirstStart = true;
-            }
-        }
+        playSpotifyTrack(playTrackEvent);
     }
 
     public void onEvent(AudioPlaybackEvent audioPlaybackEvent) {
@@ -124,12 +139,6 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
         mNotificationManager = (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
 
         switch (audioPlaybackEvent.getEventType()) {
-
-            case AudioPlaybackEvent.START:
-                startActivity(new Intent(this, MainActivity.class));
-                mNotificationManager.notify(mNotificationId, buildNotification());
-
-                break;
 
             case AudioPlaybackEvent.STOP:
                 mNotificationManager.cancel(mNotificationId);
@@ -140,8 +149,10 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
             case AudioPlaybackEvent.PLAY_PAUSE:
                 if (mIsPlaying) {
                     mPlayer.pause();
+                    mIsPlaying = false;
                 } else {
                     mPlayer.resume();
+                    mIsPlaying = true;
                 }
 
                 mNotificationManager.notify(mNotificationId, buildNotification());
@@ -160,8 +171,24 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
                 break;
         }
+    }
 
+    private void playSpotifyTrack(PlayTrackEvent playTrackEvent) {
 
+        // Create list of Spotify URIs and pass it to the player
+        List<String> spotifyTrackUris = new ArrayList<>();
+        for (SavedTrack savedTrack : playTrackEvent.getUserTracks()) {
+            spotifyTrackUris.add("spotify:track:" + savedTrack.track.id);
+        }
+
+        PlayConfig playConfig = PlayConfig.createFor(spotifyTrackUris);
+        playConfig.withTrackIndex(playTrackEvent.getCurrentTrackIndex());
+
+        if (mPlayer != null) {
+            mIsPlaying = true;
+            mPlayer.play(playConfig);
+            startForeground(mNotificationId, buildNotification());
+        }
     }
 
     @Nullable
@@ -174,6 +201,7 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     public void onDestroy() {
         Spotify.destroyPlayer(this);
         EventBus.getDefault().unregister(this);
+        mHandler.removeCallbacks(mRunnable);
         super.onDestroy();
     }
 
@@ -204,7 +232,9 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
     @Override
     public void onPlaybackEvent(EventType eventType, PlayerState playerState) {
-        mIsPlaying = playerState.playing;
+        Log.i(TAG, "onPlaybackEvent: " + playerState.playing);
+        Log.i(TAG, playerState.trackUri);
+        Log.i(TAG, "position in MS:" + playerState.positionInMs);
     }
 
     @Override
@@ -214,18 +244,18 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
     @Override
     public void onPlayerState(PlayerState playerState) {
-        mIsPlaying = playerState.playing;
+        Log.i(TAG, "onPlayerState: " + playerState.playing);
     }
 
     private Notification buildNotification() {
 
-        mNotificationBuilder = new NotificationCompat.Builder(mContext);
+        NotificationCompat.Builder mNotificationBuilder = new NotificationCompat.Builder(mContext);
         mNotificationBuilder.setColor(Color.BLACK);
         mNotificationBuilder.setOngoing(true);
         mNotificationBuilder.setAutoCancel(false);
         mNotificationBuilder.setSmallIcon(R.drawable.notif_icon);
 
-        //Open up the player screen when the user taps on the notification.
+        //Open up the play screen when the user taps on the notification.
         Intent launchNowPlayingIntent = new Intent();
         launchNowPlayingIntent.setAction(AudioPlaybackService.LAUNCH_NOW_PLAYING_ACTION);
         PendingIntent launchNowPlayingPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, launchNowPlayingIntent, 0);
@@ -253,7 +283,6 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
         PendingIntent stopServicePendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, stopServiceIntent, 0);
 
         //Check if audio is playing and set the appropriate play/pause button.
-
         if (mIsPlaying) {
             notificationView.setImageViewResource(R.id.notification_base_play, R.drawable.btn_playback_pause_light);
             expNotificationView.setImageViewResource(R.id.notification_expanded_base_play, R.drawable.btn_playback_pause_light);
@@ -282,57 +311,6 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
         notificationView.setOnClickPendingIntent(R.id.notification_base_play, playPauseTrackPendingIntent);
         notificationView.setOnClickPendingIntent(R.id.notification_base_next, nextTrackPendingIntent);
         notificationView.setOnClickPendingIntent(R.id.notification_base_previous, previousTrackPendingIntent);
-
-        //Set the states of the next/previous buttons and their pending intents.
-        /*if (mApp.getService().isOnlySongInQueue()) {
-            //This is the only song in the queue, so disable the previous/next buttons.
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_next, View.INVISIBLE);
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous, View.INVISIBLE);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_play, playPauseTrackPendingIntent);
-
-            notificationView.setViewVisibility(R.id.notification_base_next, View.INVISIBLE);
-            notificationView.setViewVisibility(R.id.notification_base_previous, View.INVISIBLE);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_play, playPauseTrackPendingIntent);
-
-        } else if (mApp.getService().isFirstSongInQueue()) {
-            //This is the the first song in the queue, so disable the previous button.
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous, View.INVISIBLE);
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_next, View.VISIBLE);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_play, playPauseTrackPendingIntent);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_next, nextTrackPendingIntent);
-
-            notificationView.setViewVisibility(R.id.notification_base_previous, View.INVISIBLE);
-            notificationView.setViewVisibility(R.id.notification_base_next, View.VISIBLE);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_play, playPauseTrackPendingIntent);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_next, nextTrackPendingIntent);
-
-        } else if (mApp.getService().isLastSongInQueue()) {
-            //This is the last song in the cursor, so disable the next button.
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous, View.VISIBLE);
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_next, View.INVISIBLE);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_play, playPauseTrackPendingIntent);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_next, nextTrackPendingIntent);
-
-            notificationView.setViewVisibility(R.id.notification_base_previous, View.VISIBLE);
-            notificationView.setViewVisibility(R.id.notification_base_next, View.INVISIBLE);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_play, playPauseTrackPendingIntent);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_next, nextTrackPendingIntent);
-
-        } else {
-            //We're smack dab in the middle of the queue, so keep the previous and next buttons enabled.
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous,View.VISIBLE);
-            expNotificationView.setViewVisibility(R.id.notification_expanded_base_next, View.VISIBLE);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_play, playPauseTrackPendingIntent);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_next, nextTrackPendingIntent);
-            expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_previous, previousTrackPendingIntent);
-
-            notificationView.setViewVisibility(R.id.notification_base_previous,View.VISIBLE);
-            notificationView.setViewVisibility(R.id.notification_base_next, View.VISIBLE);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_play, playPauseTrackPendingIntent);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_next, nextTrackPendingIntent);
-            notificationView.setOnClickPendingIntent(R.id.notification_base_previous, previousTrackPendingIntent);
-
-        }*/
 
         //Set the "Stop Service" pending intents.
         expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_collapse, stopServicePendingIntent);

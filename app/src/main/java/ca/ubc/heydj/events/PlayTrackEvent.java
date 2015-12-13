@@ -6,29 +6,16 @@ import kaaes.spotify.webapi.android.models.SavedTrack;
 import kaaes.spotify.webapi.android.models.Track;
 
 /**
+ * The AudioPlaybackService is subscribed to this
+ * event in order to play a particular song in a playlist
+ *
  * Created by Chris Li on 12/12/2015.
  */
 public class PlayTrackEvent {
 
-    private List<Track> tracks;
     private List<SavedTrack> userTracks;
-    private Track currentTrack;
+    private int currentTrackIndex = 0;
 
-    public List<Track> getTracks() {
-        return tracks;
-    }
-
-    public void setTracks(List<Track> tracks) {
-        this.tracks = tracks;
-    }
-
-    public Track getCurrentTrack() {
-        return currentTrack;
-    }
-
-    public void setCurrentTrack(Track currentTrack) {
-        this.currentTrack = currentTrack;
-    }
 
     public List<SavedTrack> getUserTracks() {
         return userTracks;
@@ -36,5 +23,13 @@ public class PlayTrackEvent {
 
     public void setUserTracks(List<SavedTrack> userTracks) {
         this.userTracks = userTracks;
+    }
+
+    public int getCurrentTrackIndex() {
+        return currentTrackIndex;
+    }
+
+    public void setCurrentTrackIndex(int currentTrackIndex) {
+        this.currentTrackIndex = currentTrackIndex;
     }
 }

@@ -10,6 +10,10 @@ android {
         targetSdkVersion 23
         versionCode 1
         versionName "1.0"
+
+        renderscriptTargetApi 16
+        renderscriptSupportModeEnabled true
+
     }
     buildTypes {
         release {
@@ -41,4 +45,5 @@ dependencies {
     compile 'com.pubnub:pubnub-android:3.7.5'
     compile 'io.realm:realm-android:0.86.0'
     compile 'de.greenrobot:eventbus:2.4.0'
+    compile 'com.squareup.picasso:picasso:2.5.2'
 }

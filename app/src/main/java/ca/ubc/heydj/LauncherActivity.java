@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
+import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.services.BuildMusicLibraryService;
 
 /**

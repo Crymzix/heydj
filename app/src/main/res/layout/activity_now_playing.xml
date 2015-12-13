@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:background="@android:color/black"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <RelativeLayout
+        android:layout_alignParentBottom="true"
+        android:id="@+id/controls_container"
+        android:layout_width="match_parent"
+        android:layout_height="120dp">
+
+        <android.support.design.widget.FloatingActionButton
+            android:id="@+id/play_button"
+            app:backgroundTint="@color/colorBlack"
+            app:elevation="10dp"
+            android:src="@drawable/ic_play"
+            android:layout_centerHorizontal="true"
+            android:layout_centerVertical="true"
+            android:layout_width="64dp"
+            android:layout_height="64dp" />
+
+        <android.support.design.widget.FloatingActionButton
+            android:visibility="invisible"
+            android:id="@+id/pause_button"
+            app:backgroundTint="@color/colorBlack"
+            app:elevation="10dp"
+            android:src="@drawable/ic_pause"
+            android:layout_centerHorizontal="true"
+            android:layout_centerVertical="true"
+            android:layout_width="64dp"
+            android:layout_height="64dp" />
+
+        <android.support.design.widget.FloatingActionButton
+            android:layout_marginLeft="24dp"
+            android:id="@+id/next_button"
+            app:backgroundTint="@color/colorBlack"
+            app:elevation="5dp"
+            android:src="@drawable/ic_skip_next"
+            android:layout_centerVertical="true"
+            android:layout_toRightOf="@+id/play_button"
+            android:layout_width="52dp"
+            android:layout_height="52dp" />
+
+        <android.support.design.widget.FloatingActionButton
+            android:layout_marginRight="24dp"
+            android:id="@+id/previous_button"
+            app:backgroundTint="@color/colorBlack"
+            app:elevation="5dp"
+            android:src="@drawable/ic_skip_previous"
+            android:layout_centerVertical="true"
+            android:layout_toLeftOf="@+id/play_button"
+            android:layout_width="52dp"
+            android:layout_height="52dp" />
+
+        <ImageButton
+            android:layout_marginLeft="24dp"
+            android:background="@android:color/transparent"
+            android:id="@+id/host_button"
+            android:src="@drawable/ic_hosts"
+            android:layout_centerVertical="true"
+            android:layout_toRightOf="@+id/next_button"
+            android:layout_width="32dp"
+            android:layout_height="32dp" />
+
+    </RelativeLayout>
+
+    <include layout="@layout/toolbar_transparent" android:id="@+id/toolbar"/>
+
+    <android.support.v4.view.ViewPager
+        android:layout_below="@+id/toolbar"
+        android:layout_above="@+id/controls_container"
+        android:id="@+id/track_pager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+    </android.support.v4.view.ViewPager>
+
+</RelativeLayout>
