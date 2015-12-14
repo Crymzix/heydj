@@ -2,49 +2,67 @@ package ca.ubc.heydj.main;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.ListView;
+import android.widget.RelativeLayout;
+import android.widget.TextView;
+import android.widget.ToggleButton;
 
-import com.google.android.gms.common.api.Status;
+import com.google.android.gms.nearby.messages.Message;
 import com.spotify.sdk.android.authentication.AuthenticationClient;
 import com.spotify.sdk.android.authentication.AuthenticationRequest;
 import com.spotify.sdk.android.authentication.AuthenticationResponse;
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import ca.ubc.heydj.BaseActivity;
 import ca.ubc.heydj.R;
+import ca.ubc.heydj.events.AudioFeedbackEvent;
+import ca.ubc.heydj.events.AudioPlaybackEvent;
+import ca.ubc.heydj.events.BroadcastPlaylistEvent;
 import ca.ubc.heydj.events.NearbyEvent;
-import ca.ubc.heydj.services.NearbyService;
-import ca.ubc.heydj.spotify.SpotifyLibraryFragment;
+import ca.ubc.heydj.nowplaying.NowPlayingActivity;
 import ca.ubc.heydj.services.AudioPlaybackService;
+import ca.ubc.heydj.services.BroadcasterService;
+import ca.ubc.heydj.spotify.SpotifyLibraryFragment;
+import ca.ubc.heydj.utils.BlurTransformation;
 import de.greenrobot.event.EventBus;
+import kaaes.spotify.webapi.android.models.Track;
 
-public class MainActivity extends AppCompatActivity
-        implements AdapterView.OnItemClickListener {
+public class MainActivity extends BaseActivity
+        implements AdapterView.OnItemClickListener, View.OnClickListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
     public static final String SPOTIFY_ACCESS_TOKEN_KEY = "spotify_access_token";
 
-    private static final int SPOTIFY_REQUEST_CODE = 1331;
+    private static final int SPOTIFY_AUTH_REQUEST = 133;
+    public static final int NOW_PLAYING_REQUEST = 124;
+
 
     private SharedPreferences mSharedPrefs;
     private String mSpotifyAccessToken = null;
 
-    private boolean mResolvingError = false;
+    private FrameLayout mPlaybarContainer;
+    private RelativeLayout mPlaybar;
+
+    private int mCurrentTrackIndex = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -63,6 +81,11 @@ public class MainActivity extends AppCompatActivity
         drawer.setDrawerListener(toggle);
         toggle.syncState();
 
+        mPlaybarContainer = (FrameLayout) findViewById(R.id.play_bar_container);
+        mPlaybar = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.play_bar_layout, null, false);
+        mPlaybar.setOnClickListener(this);
+        mPlaybar.findViewById(R.id.play_pause_toggle).setOnClickListener(this);
+
         createMenuItems();
 
         // Spotify Auth
@@ -72,7 +95,7 @@ public class MainActivity extends AppCompatActivity
         builder.setScopes(new String[]{"user-read-private", "user-library-read", "streaming"});
         AuthenticationRequest request = builder.build();
 
-        AuthenticationClient.openLoginActivity(this, SPOTIFY_REQUEST_CODE, request);
+        AuthenticationClient.openLoginActivity(this, SPOTIFY_AUTH_REQUEST, request);
     }
 
     private void createMenuItems() {
@@ -88,7 +111,7 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     protected void onDestroy() {
-        stopService(new Intent(this, NearbyService.class));
+        stopService(new Intent(this, BroadcasterService.class));
         stopService(new Intent(this, AudioPlaybackService.class));
         EventBus.getDefault().unregister(this);
         super.onDestroy();
@@ -130,50 +153,30 @@ public class MainActivity extends AppCompatActivity
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (resultCode == RESULT_OK && requestCode == SPOTIFY_REQUEST_CODE) {
-            AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, data);
-            if (response.getType() == AuthenticationResponse.Type.TOKEN) {
-                mSpotifyAccessToken = response.getAccessToken();
+        if (requestCode == SPOTIFY_AUTH_REQUEST) {
+            if (resultCode == RESULT_OK) {
+                AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, data);
+                if (response.getType() == AuthenticationResponse.Type.TOKEN) {
+                    mSpotifyAccessToken = response.getAccessToken();
 
-                getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.container, new SpotifyLibraryFragment())
-                        .commit();
+                    getSupportFragmentManager().beginTransaction()
+                            .replace(R.id.container, new SpotifyLibraryFragment())
+                            .commit();
 
-                Intent audioPlayService = new Intent(this, AudioPlaybackService.class);
-                audioPlayService.putExtra(SPOTIFY_ACCESS_TOKEN_KEY, mSpotifyAccessToken);
-                startService(audioPlayService);
+                    Intent audioPlayService = new Intent(this, AudioPlaybackService.class);
+                    audioPlayService.putExtra(SPOTIFY_ACCESS_TOKEN_KEY, mSpotifyAccessToken);
+                    startService(audioPlayService);
+                }
+            } else {
+                Log.e(TAG, "Authentication failed.");
             }
         }
 
-        if (resultCode == RESULT_OK && requestCode == NearbyService.REQUEST_NEARBY_RESOLVE_ERROR) {
-            mResolvingError = false;
-            EventBus.getDefault().post(new NearbyEvent());
-        } else {
-            // This may mean that user had rejected to grant nearby permission.
-            Log.i(TAG, "Failed to resolve error with code " + resultCode);
-        }
-
-    }
-
-    /**
-     * Displays the Nearby opt-in dialog when necessary.
-     * Triggered by the NearbyHostService
-     *
-     * @param status
-     */
-    public void onEvent(Status status) {
-
-        if (!mResolvingError) {
-            try {
-                status.startResolutionForResult(this,
-                        NearbyService.REQUEST_NEARBY_RESOLVE_ERROR);
-                mResolvingError = true;
-            } catch (IntentSender.SendIntentException e) {
-                Log.e(TAG, " failed with exception: " + e);
+        // Reconnect if returning from NowPlayingActivity and broadcasting was enabled.
+        if (requestCode == NOW_PLAYING_REQUEST) {
+            if (resultCode == RESULT_OK) {
+                connect();
             }
-        } else {
-            Log.i(TAG, " failed with status: " + status
-                    + " while resolving error.");
         }
     }
 
@@ -185,13 +188,13 @@ public class MainActivity extends AppCompatActivity
 
             case 0:
                 getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.container, new SpotifyLibraryFragment())
+                        .replace(R.id.container, new SpotifyLibraryFragment(), SpotifyLibraryFragment.TAG)
                         .commit();
                 break;
 
             case 1:
                 getSupportFragmentManager().beginTransaction()
-                        .replace(R.id.container, new NearbyHostsFragment())
+                        .replace(R.id.container, new NearbyBroadcastersFragment(), NearbyBroadcastersFragment.TAG)
                         .commit();
                 break;
 
@@ -213,4 +216,95 @@ public class MainActivity extends AppCompatActivity
         return mSpotifyAccessToken;
     }
 
+    /**
+     * Subscribe to events pertaining to Nearby APIs
+     *
+     * @param nearbyEvent
+     */
+    public void onEvent(NearbyEvent nearbyEvent) {
+
+        switch (nearbyEvent.getType()) {
+
+            case NearbyEvent.CONNECT:
+                connect();
+                break;
+
+            case NearbyEvent.DISCONNECT:
+                disconnect();
+                break;
+
+        }
+    }
+
+    /**
+     * Updates activity based on events from AudioPlaybackService
+     *
+     * @param audioFeedbackEvent
+     */
+    public void onEvent(final AudioFeedbackEvent audioFeedbackEvent) {
+
+        mCurrentTrackIndex = audioFeedbackEvent.getCurrentTrackIndex();
+        ToggleButton playPauseButton = (ToggleButton) mPlaybar.findViewById(R.id.play_pause_toggle);
+        if (audioFeedbackEvent.getPlayerState().playing) {
+            if (mPlaybarContainer.getChildCount() == 0) {
+                mPlaybarContainer.addView(mPlaybar);
+            } else {
+                playPauseButton.setChecked(true);
+            }
+        } else {
+            playPauseButton.setChecked(false);
+        }
+
+        Track currentTrack = audioFeedbackEvent.getTracks().get(audioFeedbackEvent.getCurrentTrackIndex());
+        ((TextView) mPlaybar.findViewById(R.id.track_title)).setText(currentTrack.name);
+        ((TextView) mPlaybar.findViewById(R.id.track_artist)).setText(currentTrack.artists.get(0).name);
+        Picasso.with(this)
+                .load(currentTrack.album.images.get(0).url)
+                .transform(new BlurTransformation(this))
+                .fit()
+                .centerCrop()
+                .into((ImageView) mPlaybar.findViewById(R.id.track_album_image));
+        mPlaybar.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, NowPlayingActivity.class);
+                intent.putExtra(NowPlayingActivity.CURRENT_TRACK_POSITION_KEY, mCurrentTrackIndex);
+                intent.putParcelableArrayListExtra(NowPlayingActivity.SAVED_TRACKS_KEY, (ArrayList<? extends Parcelable>) audioFeedbackEvent.getPlaylist());
+                startActivityForResult(intent, NOW_PLAYING_REQUEST);
+            }
+        });
+
+        if (mMain.isBroadcasting() && getGoogleApiClient().isConnected() && audioFeedbackEvent.getPlayerState().playing) {
+            BroadcastPlaylistEvent broadcastPlaylistEvent = new BroadcastPlaylistEvent();
+            broadcastPlaylistEvent.playlist = audioFeedbackEvent.getTracks();
+            broadcastPlaylistEvent.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
+            broadcastPlaylistEvent.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
+            broadcastPlaylistEvent.host_id = mMain.getUniqueID();
+            broadcastString(mGson.toJson(broadcastPlaylistEvent));
+        }
+    }
+
+    @Override
+    protected void onMessageFound(Message message) {
+        super.onMessageFound(message);
+        NearbyBroadcastersFragment nearbyBroadcastersFragment = (NearbyBroadcastersFragment) getSupportFragmentManager().findFragmentByTag(NearbyBroadcastersFragment.TAG);
+
+        // if this fragment is currently being displayed, route the message to it
+        if (nearbyBroadcastersFragment != null) {
+            String jsonString = new String(message.getContent());
+            nearbyBroadcastersFragment.onBroadcastPlaylistEvent(mGson.fromJson(jsonString, BroadcastPlaylistEvent.class));
+        }
+    }
+
+    @Override
+    public void onClick(View v) {
+
+        switch (v.getId()) {
+
+            case R.id.play_pause_toggle:
+                EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
+                break;
+        }
+
+    }
 }

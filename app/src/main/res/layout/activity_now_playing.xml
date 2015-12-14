@@ -54,11 +54,13 @@
             android:layout_width="52dp"
             android:layout_height="52dp" />
 
-        <ImageButton
+        <ToggleButton
             android:layout_marginLeft="24dp"
-            android:background="@android:color/transparent"
+            android:background="@drawable/host_toggle_background"
             android:id="@+id/host_button"
             android:src="@drawable/ic_hosts"
+            android:textOn=""
+            android:textOff=""
             android:layout_centerVertical="true"
             android:layout_toRightOf="@+id/next_button"
             android:layout_width="32dp"
@@ -66,14 +68,15 @@
 
     </RelativeLayout>
 
-    <include layout="@layout/toolbar_transparent" android:id="@+id/toolbar"/>
+    <include
+        layout="@layout/toolbar_transparent"
+        android:id="@+id/toolbar" />
 
     <android.support.v4.view.ViewPager
         android:layout_below="@+id/toolbar"
         android:layout_above="@+id/controls_container"
         android:id="@+id/track_pager"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-    </android.support.v4.view.ViewPager>
+        android:layout_height="match_parent"></android.support.v4.view.ViewPager>
 
 </RelativeLayout>

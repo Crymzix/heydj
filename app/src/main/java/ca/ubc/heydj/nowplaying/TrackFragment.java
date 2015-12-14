@@ -22,7 +22,8 @@ public class TrackFragment extends Fragment {
     private static final String TRACK_KEY = "track_key";
 
 
-    public TrackFragment() {}
+    public TrackFragment() {
+    }
 
     public static TrackFragment newInstance(Track track) {
         Bundle bundle = new Bundle();

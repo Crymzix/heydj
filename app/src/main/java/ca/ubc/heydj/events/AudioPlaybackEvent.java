@@ -3,14 +3,14 @@ package ca.ubc.heydj.events;
 /**
  * The AudioPlaybackService is subscribed to this event and
  * will change audio controls accordingly
- *
+ * <p/>
  * Created by Chris Li on 12/12/2015.
  */
 public class AudioPlaybackEvent {
 
     public static final int PLAY_PAUSE = 1;
     public static final int NEXT = 2;
-    public static final int PREVOUS = 3;
+    public static final int PREVIOUS = 3;
     public static final int STOP = 4;
     public static final int START = 5;
 

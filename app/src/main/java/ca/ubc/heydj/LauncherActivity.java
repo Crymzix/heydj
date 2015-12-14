@@ -13,7 +13,7 @@ import ca.ubc.heydj.services.BuildMusicLibraryService;
 
 /**
  * NOTE: Not attached at the moment
- *
+ * <p/>
  * Created by Chris Li on 12/11/2015.
  */
 public class LauncherActivity extends AppCompatActivity {
@@ -68,8 +68,8 @@ public class LauncherActivity extends AppCompatActivity {
 
             //}
             mSharedPrefs.edit()
-                        .putBoolean(START_SCAN_PREF, true)
-                        .apply();
+                    .putBoolean(START_SCAN_PREF, true)
+                    .apply();
             startActivity(new Intent(context, MainActivity.class));
         }
     }

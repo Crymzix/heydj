@@ -3,12 +3,11 @@ package ca.ubc.heydj.events;
 import java.util.List;
 
 import kaaes.spotify.webapi.android.models.SavedTrack;
-import kaaes.spotify.webapi.android.models.Track;
 
 /**
  * The AudioPlaybackService is subscribed to this
  * event in order to play a particular song in a playlist
- *
+ * <p/>
  * Created by Chris Li on 12/12/2015.
  */
 public class PlayTrackEvent {

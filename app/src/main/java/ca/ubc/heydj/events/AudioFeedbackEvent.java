@@ -11,7 +11,7 @@ import kaaes.spotify.webapi.android.models.Track;
 /**
  * Subscribers to this event receive updates from
  * the AudioPlaybackService regarding to player control
- *
+ * <p/>
  * Created by Chris Li on 12/13/2015.
  */
 public class AudioFeedbackEvent {

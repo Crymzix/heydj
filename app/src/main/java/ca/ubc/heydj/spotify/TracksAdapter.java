@@ -15,10 +15,10 @@ import kaaes.spotify.webapi.android.models.Track;
 
 /**
  * Adapter to show the list of music tracks
- *
+ * <p/>
  * Created by Chris Li on 12/11/2015.
  */
-public class TracksAdapter extends RecyclerView.Adapter<TracksAdapter.ViewHolder>{
+public class TracksAdapter extends RecyclerView.Adapter<TracksAdapter.ViewHolder> {
 
     private Context mContext;
     private LayoutInflater mLayoutInflater;

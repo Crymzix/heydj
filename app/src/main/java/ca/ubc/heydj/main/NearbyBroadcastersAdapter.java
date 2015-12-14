@@ -2,7 +2,6 @@ package ca.ubc.heydj.main;
 
 import android.content.Context;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -11,9 +10,7 @@ import android.widget.TextView;
 
 import com.squareup.picasso.Picasso;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
+import java.util.HashMap;
 import java.util.List;
 
 import ca.ubc.heydj.R;
@@ -24,15 +21,16 @@ import kaaes.spotify.webapi.android.models.Track;
 /**
  * Created by Chris Li on 12/13/2015.
  */
-public class NearbyHostsAdapter extends RecyclerView.Adapter<NearbyHostsAdapter.ViewHolder>{
+public class NearbyBroadcastersAdapter extends RecyclerView.Adapter<NearbyBroadcastersAdapter.ViewHolder> {
 
-    private static final String TAG = NearbyHostsAdapter.class.getSimpleName();
+    private static final String TAG = NearbyBroadcastersAdapter.class.getSimpleName();
 
     private Context mContext;
     private LayoutInflater mLayoutInflater;
     private List<BroadcastPlaylistEvent> mBroadcasts;
+    private OnItemClickListener mOnItemClickListener;
 
-    public NearbyHostsAdapter(Context context, List<BroadcastPlaylistEvent> broadcasts) {
+    public NearbyBroadcastersAdapter(Context context, List<BroadcastPlaylistEvent> broadcasts) {
         this.mContext = context;
         this.mLayoutInflater = LayoutInflater.from(context);
         this.mBroadcasts = broadcasts;
@@ -48,9 +46,9 @@ public class NearbyHostsAdapter extends RecyclerView.Adapter<NearbyHostsAdapter.
     }
 
     @Override
-    public void onBindViewHolder(ViewHolder holder, int position) {
+    public void onBindViewHolder(ViewHolder holder, final int position) {
 
-        BroadcastPlaylistEvent broadcastPlaylistEvent = mBroadcasts.get(position);
+        final BroadcastPlaylistEvent broadcastPlaylistEvent = mBroadcasts.get(position);
 
         Track currentTrack = broadcastPlaylistEvent.playlist.get(broadcastPlaylistEvent.current_track_index);
         holder.trackArtist.setText(currentTrack.artists.get(0).name);
@@ -60,6 +58,12 @@ public class NearbyHostsAdapter extends RecyclerView.Adapter<NearbyHostsAdapter.
                 .fit()
                 .centerCrop()
                 .into(holder.albumCover);
+        holder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mOnItemClickListener.onItemClick(position, broadcastPlaylistEvent.playlist);
+            }
+        });
     }
 
     @Override
@@ -69,6 +73,11 @@ public class NearbyHostsAdapter extends RecyclerView.Adapter<NearbyHostsAdapter.
 
     public void addItem(BroadcastPlaylistEvent broadcastPlaylistEvent) {
         mBroadcasts.add(broadcastPlaylistEvent);
+        notifyDataSetChanged();
+    }
+
+    public void updateItem(int position, BroadcastPlaylistEvent broadcastPlaylistEvent) {
+        mBroadcasts.set(position, broadcastPlaylistEvent);
         notifyDataSetChanged();
     }
 
@@ -83,6 +92,14 @@ public class NearbyHostsAdapter extends RecyclerView.Adapter<NearbyHostsAdapter.
             trackArtist = (TextView) v.findViewById(R.id.track_artist);
             albumCover = (ImageView) v.findViewById(R.id.album_image);
         }
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.mOnItemClickListener = listener;
+    }
+
+    public interface OnItemClickListener {
+        void onItemClick(int position, List<Track> tracks);
     }
 
 }

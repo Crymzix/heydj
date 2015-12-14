@@ -46,4 +46,5 @@ dependencies {
     compile 'io.realm:realm-android:0.86.0'
     compile 'de.greenrobot:eventbus:2.4.0'
     compile 'com.squareup.picasso:picasso:2.5.2'
+    compile 'de.hdodenhof:circleimageview:2.0.0'
 }

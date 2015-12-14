@@ -1,7 +1,5 @@
 package ca.ubc.heydj.nowplaying;
 
-import android.content.Intent;
-import android.content.IntentSender;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -11,28 +9,24 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewPager;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
 import android.view.View;
-import android.widget.ImageButton;
-
-import com.google.android.gms.common.api.Status;
+import android.widget.ToggleButton;
 
 import java.util.List;
 
+import ca.ubc.heydj.BaseActivity;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
-import ca.ubc.heydj.events.NearbyEvent;
-import ca.ubc.heydj.services.NearbyService;
+import ca.ubc.heydj.events.BroadcastPlaylistEvent;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
 /**
  * Created by Chris Li on 12/12/2015.
  */
-public class NowPlayingActivity extends AppCompatActivity implements ViewPager.OnPageChangeListener, View.OnClickListener{
+public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPageChangeListener, View.OnClickListener {
 
     private static final String TAG = NowPlayingActivity.class.getSimpleName();
 
@@ -45,8 +39,6 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
     private FloatingActionButton mPauseButton;
     private ViewPager mTrackPager;
     private TracksPagerAdapter mTracksAdapter;
-
-    private boolean mResolvingError = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,7 +67,7 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
         nextButton.setOnClickListener(this);
         FloatingActionButton previousButton = (FloatingActionButton) findViewById(R.id.previous_button);
         previousButton.setOnClickListener(this);
-        ImageButton hostButton = (ImageButton) findViewById(R.id.host_button);
+        ToggleButton hostButton = (ToggleButton) findViewById(R.id.host_button);
         hostButton.setOnClickListener(this);
         mTrackPager = (ViewPager) findViewById(R.id.track_pager);
 
@@ -104,7 +96,7 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
     public void onPageSelected(int position) {
 
         if (position < mCurrentTrackIndex) {
-            EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PREVOUS));
+            EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PREVIOUS));
         } else if (position > mCurrentTrackIndex) {
             EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.NEXT));
         }
@@ -146,22 +138,32 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
 
                 int decrementIndex = mTrackPager.getCurrentItem();
                 decrementIndex--;
-                if (decrementIndex >= 0 ) {
+                if (decrementIndex >= 0) {
                     mTrackPager.setCurrentItem(decrementIndex, true);
                 }
                 break;
 
             case R.id.host_button:
-                Intent nearbyService = new Intent(this, NearbyService.class);
-                nearbyService.putExtra(NearbyService.IS_HOST_KEY, true);
-                startService(nearbyService);
+                if (((ToggleButton) v).isChecked()) {
+                    connect();
+                } else {
+                    disconnect();
+                }
                 break;
 
         }
     }
 
+    @Override
+    public void onBackPressed() {
+        if (getGoogleApiClient().isConnected() && mMain.isBroadcasting()) {
+            setResult(RESULT_OK);
+        }
+        super.onBackPressed();
+    }
+
     /**
-     * Updates UI based on Player state
+     * Updates activity based on events from AudioPlaybackService
      *
      * @param audioFeedbackEvent
      */
@@ -176,42 +178,14 @@ public class NowPlayingActivity extends AppCompatActivity implements ViewPager.O
                 mPlayButton.setVisibility(View.VISIBLE);
             }
         }
-    }
 
-    /**
-     * Displays the Nearby opt-in dialog when necessary.
-     * Triggered by the NearbyHostService
-     *
-     * @param status
-     */
-    public void onEvent(Status status) {
-
-        if (!mResolvingError) {
-            try {
-                status.startResolutionForResult(this,
-                        NearbyService.REQUEST_NEARBY_RESOLVE_ERROR);
-                mResolvingError = true;
-            } catch (IntentSender.SendIntentException e) {
-                Log.e(TAG, " failed with exception: " + e);
-            }
-        } else {
-            Log.i(TAG, " failed with status: " + status
-                    + " while resolving error.");
-        }
-    }
-
-    // This is called in response to a button tap in the Nearby permission dialog.
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == NearbyService.REQUEST_NEARBY_RESOLVE_ERROR) {
-            mResolvingError = false;
-            if (resultCode == RESULT_OK) {
-                EventBus.getDefault().post(new NearbyEvent());
-            } else {
-                // This may mean that user had rejected to grant nearby permission.
-                Log.i(TAG, "Failed to resolve error with code " + resultCode);
-            }
+        if (mMain.isBroadcasting() && getGoogleApiClient().isConnected() && audioFeedbackEvent.getPlayerState().playing) {
+            BroadcastPlaylistEvent broadcastPlaylistEvent = new BroadcastPlaylistEvent();
+            broadcastPlaylistEvent.playlist = audioFeedbackEvent.getTracks();
+            broadcastPlaylistEvent.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
+            broadcastPlaylistEvent.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
+            broadcastPlaylistEvent.host_id = mMain.getUniqueID();
+            broadcastString(mGson.toJson(broadcastPlaylistEvent));
         }
     }
 

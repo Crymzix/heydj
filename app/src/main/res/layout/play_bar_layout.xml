@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/play_bar_layout"
+    android:layout_width="match_parent"
+    android:layout_height="72dp">
+
+
+    <ImageView
+        android:id="@+id/track_album_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <View
+        android:background="@color/colorBlackTransparent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <ToggleButton
+        android:id="@+id/play_pause_toggle"
+        android:background="@drawable/play_pause_toggle_background"
+        android:textOff=""
+        android:textOn=""
+        android:layout_centerVertical="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginRight="25dp"
+        android:layout_width="45dp"
+        android:layout_height="45dp" />
+
+    <TextView
+        android:layout_alignParentLeft="true"
+        android:layout_marginTop="15dp"
+        android:layout_marginLeft="25dp"
+        android:layout_marginRight="84dp"
+        android:id="@+id/track_title"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textSize="16sp"
+        android:textColor="@android:color/white"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:layout_marginLeft="25dp"
+        android:layout_marginRight="84dp"
+        android:layout_marginTop="5dp"
+        android:layout_below="@id/track_title"
+        android:id="@+id/track_artist"
+        android:textSize="12sp"
+        android:fontFamily="sans-serif-light"
+        android:textColor="@android:color/white"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content" />
+
+</RelativeLayout>

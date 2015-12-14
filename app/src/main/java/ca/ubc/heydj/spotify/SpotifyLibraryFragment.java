@@ -13,9 +13,9 @@ import android.view.ViewGroup;
 
 import java.util.ArrayList;
 
-import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.PlayTrackEvent;
+import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
 import ca.ubc.heydj.services.AudioPlaybackService;
 import de.greenrobot.event.EventBus;
@@ -31,9 +31,9 @@ import retrofit.client.Response;
 /**
  * Created by Chris Li on 12/11/2015.
  */
-public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.OnItemClickListener{
+public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.OnItemClickListener {
 
-    private static final String TAG = SpotifyLibraryFragment.class.getSimpleName();
+    public static final String TAG = SpotifyLibraryFragment.class.getSimpleName();
 
     private TracksAdapter mTracksAdapter;
     private RecyclerView mTracksRecyclerView;
@@ -91,7 +91,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
         Intent nowPlayingIntent = new Intent(getActivity(), NowPlayingActivity.class);
         nowPlayingIntent.putExtra(NowPlayingActivity.CURRENT_TRACK_POSITION_KEY, position);
         nowPlayingIntent.putParcelableArrayListExtra(NowPlayingActivity.SAVED_TRACKS_KEY, (ArrayList<? extends Parcelable>) mTracksAdapter.getSavedTracks());
-        startActivity(nowPlayingIntent);
+        getActivity().startActivityForResult(nowPlayingIntent, MainActivity.NOW_PLAYING_REQUEST);
 
         // one event for a running service and one event for service that has just been instantiated
         EventBus.getDefault().post(playTrackEvent);

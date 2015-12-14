@@ -27,20 +27,20 @@ import com.spotify.sdk.android.player.Spotify;
 import java.util.ArrayList;
 import java.util.List;
 
-import ca.ubc.heydj.events.AudioFeedbackEvent;
-import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.R;
+import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.PlayTrackEvent;
+import ca.ubc.heydj.main.MainActivity;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
 /**
  * Service used to play audio in the background.
- *
+ * <p/>
  * Created by Chris Li on 12/11/2015.
  */
-public class AudioPlaybackService extends Service implements PlayerNotificationCallback, ConnectionStateCallback, PlayerStateCallback{
+public class AudioPlaybackService extends Service implements PlayerNotificationCallback, ConnectionStateCallback, PlayerStateCallback {
 
     private static final String TAG = AudioPlaybackService.class.getSimpleName();
 
@@ -63,6 +63,8 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     private Handler mHandler;
     private Runnable mRunnable;
 
+    private int mCurrentTrackIndex = 0;
+    private int mPlaylistSize = 0;
 
     @Override
     public void onCreate() {
@@ -147,12 +149,18 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
             case AudioPlaybackEvent.NEXT:
                 mPlayer.skipToNext();
+                if (mCurrentTrackIndex < mPlaylistSize) {
+                    mCurrentTrackIndex++;
+                }
                 mNotificationManager.notify(mNotificationId, buildNotification());
 
                 break;
 
-            case AudioPlaybackEvent.PREVOUS:
+            case AudioPlaybackEvent.PREVIOUS:
                 mPlayer.skipToPrevious();
+                if (mCurrentTrackIndex - 1 >= 0) {
+                    mCurrentTrackIndex--;
+                }
                 mNotificationManager.notify(mNotificationId, buildNotification());
 
                 break;
@@ -174,6 +182,8 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
         PlayConfig playConfig = PlayConfig.createFor(spotifyTrackUris);
         playConfig.withTrackIndex(playTrackEvent.getCurrentTrackIndex());
+        mCurrentTrackIndex = playTrackEvent.getCurrentTrackIndex();
+        mPlaylistSize = playTrackEvent.getUserTracks().size();
 
         if (mPlayer != null) {
             // Repeatedly broadcast player state to (internal) subscribers
@@ -185,7 +195,7 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
                         public void onPlayerState(PlayerState playerState) {
                             AudioFeedbackEvent audioFeedbackEvent = new AudioFeedbackEvent();
                             audioFeedbackEvent.setPlayerState(playerState);
-                            audioFeedbackEvent.setCurrentTrackIndex(playTrackEvent.getCurrentTrackIndex());
+                            audioFeedbackEvent.setCurrentTrackIndex(mCurrentTrackIndex);
                             audioFeedbackEvent.setPlaylist(playTrackEvent.getUserTracks());
                             EventBus.getDefault().post(audioFeedbackEvent);
                             mHandler.postDelayed(mRunnable, 1000);
@@ -310,13 +320,13 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
         notificationView.setTextViewText(R.id.notification_base_line_two, "Artist");
 
         //We're smack dab in the middle of the queue, so keep the previous and next buttons enabled.
-        expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous,View.VISIBLE);
+        expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous, View.VISIBLE);
         expNotificationView.setViewVisibility(R.id.notification_expanded_base_next, View.VISIBLE);
         expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_play, playPauseTrackPendingIntent);
         expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_next, nextTrackPendingIntent);
         expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_previous, previousTrackPendingIntent);
 
-        notificationView.setViewVisibility(R.id.notification_base_previous,View.VISIBLE);
+        notificationView.setViewVisibility(R.id.notification_base_previous, View.VISIBLE);
         notificationView.setViewVisibility(R.id.notification_base_next, View.VISIBLE);
         notificationView.setOnClickPendingIntent(R.id.notification_base_play, playPauseTrackPendingIntent);
         notificationView.setOnClickPendingIntent(R.id.notification_base_next, nextTrackPendingIntent);
