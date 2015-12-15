@@ -79,4 +79,14 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"></android.support.v4.view.ViewPager>
 
+    <SeekBar
+        android:thumbTint="@color/colorWhite"
+        android:progressBackgroundTint="@color/colorWhite"
+        android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
+        android:layout_alignTop="@+id/controls_container"
+        android:id="@+id/track_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
 </RelativeLayout>

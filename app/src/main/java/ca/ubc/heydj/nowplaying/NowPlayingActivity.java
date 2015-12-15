@@ -1,5 +1,6 @@
 package ca.ubc.heydj.nowplaying;
 
+import android.content.Intent;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -10,7 +11,10 @@ import android.support.v4.app.FragmentStatePagerAdapter;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
+import android.view.ViewTreeObserver;
+import android.widget.SeekBar;
 import android.widget.ToggleButton;
 
 import java.util.List;
@@ -19,14 +23,18 @@ import ca.ubc.heydj.BaseActivity;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
-import ca.ubc.heydj.events.BroadcastPlaylistEvent;
+import ca.ubc.heydj.main.MainActivity;
+import ca.ubc.heydj.models.BroadcastedPlaylist;
+import ca.ubc.heydj.events.PlayTrackEvent;
+import ca.ubc.heydj.spotify.SpotifyAudioPlaybackService;
 import de.greenrobot.event.EventBus;
+import de.greenrobot.event.SubscriberExceptionEvent;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
 /**
  * Created by Chris Li on 12/12/2015.
  */
-public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPageChangeListener, View.OnClickListener {
+public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPageChangeListener, View.OnClickListener, SeekBar.OnSeekBarChangeListener {
 
     private static final String TAG = NowPlayingActivity.class.getSimpleName();
 
@@ -34,11 +42,14 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
     public static final String SAVED_TRACKS_KEY = "saved_tracks_key";
 
     private int mCurrentTrackIndex = 0;
+    private List<SavedTrack> mCurrentTracks = null;
 
     private FloatingActionButton mPlayButton;
     private FloatingActionButton mPauseButton;
     private ViewPager mTrackPager;
     private TracksPagerAdapter mTracksAdapter;
+    private ToggleButton mHostButton;
+    private SeekBar mTrackBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,14 +78,17 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         nextButton.setOnClickListener(this);
         FloatingActionButton previousButton = (FloatingActionButton) findViewById(R.id.previous_button);
         previousButton.setOnClickListener(this);
-        ToggleButton hostButton = (ToggleButton) findViewById(R.id.host_button);
-        hostButton.setOnClickListener(this);
+        mHostButton = (ToggleButton) findViewById(R.id.host_button);
+        mHostButton.setOnClickListener(this);
         mTrackPager = (ViewPager) findViewById(R.id.track_pager);
+        mTrackBar = (SeekBar) findViewById(R.id.track_bar);
+        mTrackBar.setProgress(0);
+        mTrackBar.setOnSeekBarChangeListener(this);
 
         mCurrentTrackIndex = getIntent().getIntExtra(CURRENT_TRACK_POSITION_KEY, 0);
-        List<SavedTrack> savedTracks = getIntent().getParcelableArrayListExtra(SAVED_TRACKS_KEY);
+        mCurrentTracks = getIntent().getParcelableArrayListExtra(SAVED_TRACKS_KEY);
 
-        mTracksAdapter = new TracksPagerAdapter(getSupportFragmentManager(), savedTracks);
+        mTracksAdapter = new TracksPagerAdapter(getSupportFragmentManager(), mCurrentTracks);
         mTrackPager.setAdapter(mTracksAdapter);
         mTrackPager.setCurrentItem(mCurrentTrackIndex, true);
         mTrackPager.addOnPageChangeListener(this);
@@ -101,6 +115,7 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
             EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.NEXT));
         }
         mCurrentTrackIndex = position;
+        mTrackBar.setMax((int) mCurrentTracks.get(position).track.duration_ms);
     }
 
     @Override
@@ -114,15 +129,30 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         switch (v.getId()) {
 
             case R.id.play_button:
-                EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
-                mPauseButton.setVisibility(View.VISIBLE);
-                mPlayButton.setVisibility(View.INVISIBLE);
+
+                if (mMain.getSpotifyAudioService() == null) {
+                    if (mCurrentTracks != null) {
+                        startService(new Intent(this, SpotifyAudioPlaybackService.class));
+                        PlayTrackEvent playTrackEvent = new PlayTrackEvent();
+                        playTrackEvent.setCurrentTrackIndex(mCurrentTrackIndex);
+                        playTrackEvent.setUserTracks(mCurrentTracks);
+                        EventBus.getDefault().postSticky(playTrackEvent);
+                    }
+                } else {
+                    EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
+                    mPauseButton.setVisibility(View.VISIBLE);
+                    mPlayButton.setVisibility(View.INVISIBLE);
+                }
+
                 break;
 
             case R.id.pause_button:
-                EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
-                mPauseButton.setVisibility(View.INVISIBLE);
-                mPlayButton.setVisibility(View.VISIBLE);
+
+                if (mMain.getSpotifyAudioService() != null) {
+                    EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
+                    mPauseButton.setVisibility(View.INVISIBLE);
+                    mPlayButton.setVisibility(View.VISIBLE);
+                }
                 break;
 
             case R.id.next_button:
@@ -169,6 +199,7 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
      */
     public void onEvent(AudioFeedbackEvent audioFeedbackEvent) {
 
+        mCurrentTracks = audioFeedbackEvent.getPlaylist();
         if (mPlayButton != null && mPauseButton != null) {
             if (audioFeedbackEvent.getPlayerState().playing) {
                 mPauseButton.setVisibility(View.VISIBLE);
@@ -179,14 +210,51 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
             }
         }
 
-        if (mMain.isBroadcasting() && getGoogleApiClient().isConnected() && audioFeedbackEvent.getPlayerState().playing) {
-            BroadcastPlaylistEvent broadcastPlaylistEvent = new BroadcastPlaylistEvent();
-            broadcastPlaylistEvent.playlist = audioFeedbackEvent.getTracks();
-            broadcastPlaylistEvent.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
-            broadcastPlaylistEvent.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
-            broadcastPlaylistEvent.host_id = mMain.getUniqueID();
-            broadcastString(mGson.toJson(broadcastPlaylistEvent));
+        mTrackBar.setProgress(audioFeedbackEvent.getPlayerState().positionInMs);
+        mTrackBar.setMax(audioFeedbackEvent.getPlayerState().durationInMs);
+
+        if (mMain.isBroadcasting()) {
+            mHostButton.setChecked(true);
+
+            if (getGoogleApiClient().isConnected() && audioFeedbackEvent.getPlayerState().playing) {
+                switch (audioFeedbackEvent.getType()) {
+
+                    case AudioFeedbackEvent.STARTED:
+                    case AudioFeedbackEvent.TRACK_CHANGED:
+                        mTrackPager.setCurrentItem(audioFeedbackEvent.getCurrentTrackIndex(), true);
+                        BroadcastedPlaylist broadcastedPlaylist = new BroadcastedPlaylist();
+                        broadcastedPlaylist.playlist = audioFeedbackEvent.getTracks();
+                        broadcastedPlaylist.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
+                        broadcastedPlaylist.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
+                        broadcastedPlaylist.host_id = mMain.getUniqueID();
+                        Log.e(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
+                        broadcastString(mGson.toJson(broadcastedPlaylist));
+                        break;
+                }
+            }
+        } else {
+            mHostButton.setChecked(false);
         }
+
+    }
+
+    @Override
+    public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+        if (fromUser) {
+            AudioPlaybackEvent audioPlaybackEvent = new AudioPlaybackEvent(AudioPlaybackEvent.SCRUB);
+            audioPlaybackEvent.setPositionInMs(progress);
+            EventBus.getDefault().post(audioPlaybackEvent);
+        }
+    }
+
+    @Override
+    public void onStartTrackingTouch(SeekBar seekBar) {
+
+    }
+
+    @Override
+    public void onStopTrackingTouch(SeekBar seekBar) {
+
     }
 
 

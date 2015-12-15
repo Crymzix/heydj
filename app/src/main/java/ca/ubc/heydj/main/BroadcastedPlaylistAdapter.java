@@ -5,7 +5,6 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.squareup.picasso.Picasso;
@@ -13,7 +12,6 @@ import com.squareup.picasso.Picasso;
 import java.util.List;
 
 import ca.ubc.heydj.R;
-import ca.ubc.heydj.events.BroadcastPlaylistEvent;
 import de.hdodenhof.circleimageview.CircleImageView;
 import kaaes.spotify.webapi.android.models.Track;
 

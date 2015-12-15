@@ -3,6 +3,8 @@ package ca.ubc.heydj.main;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.support.v4.view.GravityCompat;
@@ -14,11 +16,14 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.AdapterView;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.RelativeLayout;
+import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
@@ -35,14 +40,16 @@ import ca.ubc.heydj.BaseActivity;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
-import ca.ubc.heydj.events.BroadcastPlaylistEvent;
+import ca.ubc.heydj.events.PlayTrackEvent;
+import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.NearbyEvent;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
-import ca.ubc.heydj.services.AudioPlaybackService;
+import ca.ubc.heydj.spotify.SpotifyAudioPlaybackService;
 import ca.ubc.heydj.services.BroadcasterService;
 import ca.ubc.heydj.spotify.SpotifyLibraryFragment;
 import ca.ubc.heydj.utils.BlurTransformation;
 import de.greenrobot.event.EventBus;
+import kaaes.spotify.webapi.android.models.SavedTrack;
 import kaaes.spotify.webapi.android.models.Track;
 
 public class MainActivity extends BaseActivity
@@ -57,12 +64,13 @@ public class MainActivity extends BaseActivity
 
 
     private SharedPreferences mSharedPrefs;
-    private String mSpotifyAccessToken = null;
 
     private FrameLayout mPlaybarContainer;
     private RelativeLayout mPlaybar;
+    private SeekBar mTrackBar;
 
     private int mCurrentTrackIndex = 0;
+    private List<SavedTrack> mCurrentTracks;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,6 +93,18 @@ public class MainActivity extends BaseActivity
         mPlaybar = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.play_bar_layout, null, false);
         mPlaybar.setOnClickListener(this);
         mPlaybar.findViewById(R.id.play_pause_toggle).setOnClickListener(this);
+        mTrackBar = (SeekBar) mPlaybar.findViewById(R.id.track_bar);
+        mTrackBar.getThumb().setAlpha(0);
+        mTrackBar.getProgressDrawable().setColorFilter(Color.WHITE, PorterDuff.Mode.MULTIPLY);
+        mTrackBar.setPadding(0, 0, 0, 0);
+        final RelativeLayout.LayoutParams trackBarLayoutParams = (RelativeLayout.LayoutParams) mTrackBar.getLayoutParams();
+        mTrackBar.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                trackBarLayoutParams.setMargins(0,-mTrackBar.getHeight()/2,0,0);
+                mTrackBar.setLayoutParams(trackBarLayoutParams);
+            }
+        });
 
         createMenuItems();
 
@@ -112,7 +132,7 @@ public class MainActivity extends BaseActivity
     @Override
     protected void onDestroy() {
         stopService(new Intent(this, BroadcasterService.class));
-        stopService(new Intent(this, AudioPlaybackService.class));
+        stopService(new Intent(this, SpotifyAudioPlaybackService.class));
         EventBus.getDefault().unregister(this);
         super.onDestroy();
     }
@@ -157,14 +177,13 @@ public class MainActivity extends BaseActivity
             if (resultCode == RESULT_OK) {
                 AuthenticationResponse response = AuthenticationClient.getResponse(resultCode, data);
                 if (response.getType() == AuthenticationResponse.Type.TOKEN) {
-                    mSpotifyAccessToken = response.getAccessToken();
-
+                    mMain.setSpotifyAccessToken(response.getAccessToken());
                     getSupportFragmentManager().beginTransaction()
                             .replace(R.id.container, new SpotifyLibraryFragment())
                             .commit();
 
-                    Intent audioPlayService = new Intent(this, AudioPlaybackService.class);
-                    audioPlayService.putExtra(SPOTIFY_ACCESS_TOKEN_KEY, mSpotifyAccessToken);
+                    Intent audioPlayService = new Intent(this, SpotifyAudioPlaybackService.class);
+                    audioPlayService.putExtra(SPOTIFY_ACCESS_TOKEN_KEY, mMain.getSpotifyAccessToken());
                     startService(audioPlayService);
                 }
             } else {
@@ -213,7 +232,7 @@ public class MainActivity extends BaseActivity
     }
 
     public String getSpotifyAccessToken() {
-        return mSpotifyAccessToken;
+        return mMain.getSpotifyAccessToken();
     }
 
     /**
@@ -243,8 +262,17 @@ public class MainActivity extends BaseActivity
      */
     public void onEvent(final AudioFeedbackEvent audioFeedbackEvent) {
 
-        mCurrentTrackIndex = audioFeedbackEvent.getCurrentTrackIndex();
         ToggleButton playPauseButton = (ToggleButton) mPlaybar.findViewById(R.id.play_pause_toggle);
+
+        if (audioFeedbackEvent.getType() == AudioFeedbackEvent.STOPPED) {
+            mTrackBar.setProgress(0);
+            playPauseButton.setChecked(false);
+            return;
+        }
+
+        mCurrentTrackIndex = audioFeedbackEvent.getCurrentTrackIndex();
+        mCurrentTracks = audioFeedbackEvent.getPlaylist();
+
         if (audioFeedbackEvent.getPlayerState().playing) {
             if (mPlaybarContainer.getChildCount() == 0) {
                 mPlaybarContainer.addView(mPlaybar);
@@ -255,11 +283,14 @@ public class MainActivity extends BaseActivity
             playPauseButton.setChecked(false);
         }
 
+        mTrackBar.setProgress(audioFeedbackEvent.getPlayerState().positionInMs);
+        mTrackBar.setMax(audioFeedbackEvent.getPlayerState().durationInMs);
+
         Track currentTrack = audioFeedbackEvent.getTracks().get(audioFeedbackEvent.getCurrentTrackIndex());
         ((TextView) mPlaybar.findViewById(R.id.track_title)).setText(currentTrack.name);
         ((TextView) mPlaybar.findViewById(R.id.track_artist)).setText(currentTrack.artists.get(0).name);
         Picasso.with(this)
-                .load(currentTrack.album.images.get(0).url)
+                .load(currentTrack.album.images.get(2).url)
                 .transform(new BlurTransformation(this))
                 .fit()
                 .centerCrop()
@@ -274,13 +305,22 @@ public class MainActivity extends BaseActivity
             }
         });
 
-        if (mMain.isBroadcasting() && getGoogleApiClient().isConnected() && audioFeedbackEvent.getPlayerState().playing) {
-            BroadcastPlaylistEvent broadcastPlaylistEvent = new BroadcastPlaylistEvent();
-            broadcastPlaylistEvent.playlist = audioFeedbackEvent.getTracks();
-            broadcastPlaylistEvent.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
-            broadcastPlaylistEvent.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
-            broadcastPlaylistEvent.host_id = mMain.getUniqueID();
-            broadcastString(mGson.toJson(broadcastPlaylistEvent));
+        if (mMain.isBroadcasting()) {
+            if (getGoogleApiClient().isConnected() && audioFeedbackEvent.getPlayerState().playing) {
+                switch (audioFeedbackEvent.getType()) {
+
+                    case AudioFeedbackEvent.STARTED:
+                    case AudioFeedbackEvent.TRACK_CHANGED:
+                        BroadcastedPlaylist broadcastedPlaylist = new BroadcastedPlaylist();
+                        broadcastedPlaylist.playlist = audioFeedbackEvent.getTracks();
+                        broadcastedPlaylist.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
+                        broadcastedPlaylist.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
+                        broadcastedPlaylist.host_id = mMain.getUniqueID();
+                        Log.e(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
+                        broadcastString(mGson.toJson(broadcastedPlaylist));
+                        break;
+                }
+            }
         }
     }
 
@@ -292,7 +332,7 @@ public class MainActivity extends BaseActivity
         // if this fragment is currently being displayed, route the message to it
         if (nearbyBroadcastersFragment != null) {
             String jsonString = new String(message.getContent());
-            nearbyBroadcastersFragment.onBroadcastPlaylistEvent(mGson.fromJson(jsonString, BroadcastPlaylistEvent.class));
+            nearbyBroadcastersFragment.onBroadcastPlaylistEvent(mGson.fromJson(jsonString, BroadcastedPlaylist.class));
         }
     }
 
@@ -302,7 +342,18 @@ public class MainActivity extends BaseActivity
         switch (v.getId()) {
 
             case R.id.play_pause_toggle:
-                EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
+                if (mMain.getSpotifyAudioService() == null) {
+                    startService(new Intent(this, SpotifyAudioPlaybackService.class));
+                    if (mCurrentTracks != null) {
+                        PlayTrackEvent playTrackEvent = new PlayTrackEvent();
+                        playTrackEvent.setCurrentTrackIndex(mCurrentTrackIndex);
+                        playTrackEvent.setUserTracks(mCurrentTracks);
+                        EventBus.getDefault().postSticky(playTrackEvent);
+                    }
+                } else {
+                    EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
+                }
+
                 break;
         }
 

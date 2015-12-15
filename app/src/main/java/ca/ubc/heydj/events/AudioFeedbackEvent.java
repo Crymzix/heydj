@@ -16,9 +16,15 @@ import kaaes.spotify.webapi.android.models.Track;
  */
 public class AudioFeedbackEvent {
 
+    public static final int STARTED = 1;
+    public static final int PLAYING = 2;
+    public static final int TRACK_CHANGED = 3;
+    public static final int STOPPED = 4;
+
     private List<SavedTrack> playlist;
     private int currentTrackIndex = 0;
     private PlayerState playerState;
+    private int type;
 
     public List<SavedTrack> getPlaylist() {
         return playlist;
@@ -52,5 +58,13 @@ public class AudioFeedbackEvent {
         }
 
         return tracks;
+    }
+
+    public int getType() {
+        return type;
+    }
+
+    public void setType(int type) {
+        this.type = type;
     }
 }

@@ -17,7 +17,6 @@ import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.PlayTrackEvent;
 import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
-import ca.ubc.heydj.services.AudioPlaybackService;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
@@ -80,7 +79,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
     public void onItemClick(int position, Track selectedTrack) {
 
         // Create service if it hasn't been created and send PlayTrackEvent to it
-        Intent audioServiceIntent = new Intent(getActivity(), AudioPlaybackService.class);
+        Intent audioServiceIntent = new Intent(getActivity(), SpotifyAudioPlaybackService.class);
         audioServiceIntent.putExtra(MainActivity.SPOTIFY_ACCESS_TOKEN_KEY, ((MainActivity) getActivity()).getSpotifyAccessToken());
         getActivity().startService(audioServiceIntent);
         PlayTrackEvent playTrackEvent = new PlayTrackEvent();
@@ -91,6 +90,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
         Intent nowPlayingIntent = new Intent(getActivity(), NowPlayingActivity.class);
         nowPlayingIntent.putExtra(NowPlayingActivity.CURRENT_TRACK_POSITION_KEY, position);
         nowPlayingIntent.putParcelableArrayListExtra(NowPlayingActivity.SAVED_TRACKS_KEY, (ArrayList<? extends Parcelable>) mTracksAdapter.getSavedTracks());
+
         getActivity().startActivityForResult(nowPlayingIntent, MainActivity.NOW_PLAYING_REQUEST);
 
         // one event for a running service and one event for service that has just been instantiated

@@ -1,4 +1,4 @@
-package ca.ubc.heydj.services;
+package ca.ubc.heydj.spotify;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -27,6 +27,7 @@ import com.spotify.sdk.android.player.Spotify;
 import java.util.ArrayList;
 import java.util.List;
 
+import ca.ubc.heydj.MainApplication;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
@@ -40,9 +41,9 @@ import kaaes.spotify.webapi.android.models.SavedTrack;
  * <p/>
  * Created by Chris Li on 12/11/2015.
  */
-public class AudioPlaybackService extends Service implements PlayerNotificationCallback, ConnectionStateCallback, PlayerStateCallback {
+public class SpotifyAudioPlaybackService extends Service implements PlayerNotificationCallback, ConnectionStateCallback, PlayerStateCallback {
 
-    private static final String TAG = AudioPlaybackService.class.getSimpleName();
+    private static final String TAG = SpotifyAudioPlaybackService.class.getSimpleName();
 
     public static final int mNotificationId = 1156;
     private NotificationManager mNotificationManager;
@@ -59,10 +60,13 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     private boolean mIsPlaying = false;
 
     private Context mContext;
+    private MainApplication mMain;
 
     private Handler mHandler;
     private Runnable mRunnable;
 
+    private List<String> mPlaylist;
+    private String mCurrentTrack = null;
     private int mCurrentTrackIndex = 0;
     private int mPlaylistSize = 0;
 
@@ -70,9 +74,11 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     public void onCreate() {
         super.onCreate();
         mContext = getApplicationContext();
+        mMain = (MainApplication) getApplication();
         mHandler = new Handler();
         mNotificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         EventBus.getDefault().register(this);
+        mMain.setSpotifyAudioService(this);
         mFirstRun = true;
     }
 
@@ -80,7 +86,7 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     public int onStartCommand(Intent intent, int flags, int startId) {
 
         if (intent != null) {
-            String spotifyAccessToken = intent.getStringExtra(MainActivity.SPOTIFY_ACCESS_TOKEN_KEY);
+            String spotifyAccessToken = mMain.getSpotifyAccessToken();
             if (spotifyAccessToken != null && mFirstRun) {
                 setupSpotifyPlayer(spotifyAccessToken);
             }
@@ -97,9 +103,9 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
             @Override
             public void onInitialized(Player player) {
                 mPlayer = player;
-                mPlayer.addConnectionStateCallback(AudioPlaybackService.this);
-                mPlayer.addPlayerNotificationCallback(AudioPlaybackService.this);
-                mPlayer.getPlayerState(AudioPlaybackService.this);
+                mPlayer.addConnectionStateCallback(SpotifyAudioPlaybackService.this);
+                mPlayer.addPlayerNotificationCallback(SpotifyAudioPlaybackService.this);
+                mPlayer.getPlayerState(SpotifyAudioPlaybackService.this);
                 mFirstRun = false;
                 Log.i(TAG, "Spotify player initialized");
 
@@ -129,6 +135,10 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
         switch (audioPlaybackEvent.getEventType()) {
 
             case AudioPlaybackEvent.STOP:
+                // Update the UI if the service was stopped via the notification close button
+                AudioFeedbackEvent audioFeedbackEvent = new AudioFeedbackEvent();
+                audioFeedbackEvent.setType(AudioFeedbackEvent.STOPPED);
+                EventBus.getDefault().post(audioFeedbackEvent);
                 mNotificationManager.cancel(mNotificationId);
                 stopSelf();
 
@@ -164,6 +174,10 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
                 mNotificationManager.notify(mNotificationId, buildNotification());
 
                 break;
+
+            case AudioPlaybackEvent.SCRUB:
+                mPlayer.seekToPosition(audioPlaybackEvent.getPositionInMs());
+                break;
         }
     }
 
@@ -175,12 +189,12 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     private void playSpotifyTrack(final PlayTrackEvent playTrackEvent) {
 
         // Create list of Spotify URIs and pass it to the player
-        List<String> spotifyTrackUris = new ArrayList<>();
+        mPlaylist = new ArrayList<>();
         for (SavedTrack savedTrack : playTrackEvent.getUserTracks()) {
-            spotifyTrackUris.add("spotify:track:" + savedTrack.track.id);
+            mPlaylist.add("spotify:track:" + savedTrack.track.id);
         }
 
-        PlayConfig playConfig = PlayConfig.createFor(spotifyTrackUris);
+        PlayConfig playConfig = PlayConfig.createFor(mPlaylist);
         playConfig.withTrackIndex(playTrackEvent.getCurrentTrackIndex());
         mCurrentTrackIndex = playTrackEvent.getCurrentTrackIndex();
         mPlaylistSize = playTrackEvent.getUserTracks().size();
@@ -197,14 +211,32 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
                             audioFeedbackEvent.setPlayerState(playerState);
                             audioFeedbackEvent.setCurrentTrackIndex(mCurrentTrackIndex);
                             audioFeedbackEvent.setPlaylist(playTrackEvent.getUserTracks());
+
+                            if (playerState.playing) {
+                                audioFeedbackEvent.setType(AudioFeedbackEvent.PLAYING);
+                                if (mCurrentTrack == null) {
+                                    audioFeedbackEvent.setType(AudioFeedbackEvent.STARTED);
+                                } else if (!mCurrentTrack.equals(playerState.trackUri)) {
+                                    // Manually sending a track changed event
+                                    if (mPlaylist.indexOf(playerState.trackUri) < mCurrentTrackIndex) {
+                                        mCurrentTrackIndex--;
+                                    } else if (mPlaylist.indexOf(playerState.trackUri) > mCurrentTrackIndex) {
+                                        mCurrentTrackIndex++;
+                                    }
+                                    audioFeedbackEvent.setType(AudioFeedbackEvent.TRACK_CHANGED);
+                                }
+                                mCurrentTrack = playerState.trackUri;
+                            }
+
                             EventBus.getDefault().post(audioFeedbackEvent);
+
                             mHandler.postDelayed(mRunnable, 1000);
                         }
                     });
                 }
             };
-            mHandler.postDelayed(mRunnable, 1000);
 
+            mHandler.post(mRunnable);
             mIsPlaying = true;
             mPlayer.play(playConfig);
             startForeground(mNotificationId, buildNotification());
@@ -221,6 +253,7 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
     public void onDestroy() {
         Spotify.destroyPlayer(this);
         EventBus.getDefault().unregister(this);
+        mMain.setSpotifyAudioService(null);
         mHandler.removeCallbacks(mRunnable);
         super.onDestroy();
     }
@@ -277,7 +310,7 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
         //Open up the play screen when the user taps on the notification.
         Intent launchNowPlayingIntent = new Intent();
-        launchNowPlayingIntent.setAction(AudioPlaybackService.LAUNCH_NOW_PLAYING_ACTION);
+        launchNowPlayingIntent.setAction(SpotifyAudioPlaybackService.LAUNCH_NOW_PLAYING_ACTION);
         PendingIntent launchNowPlayingPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, launchNowPlayingIntent, 0);
         mNotificationBuilder.setContentIntent(launchNowPlayingPendingIntent);
 
@@ -287,19 +320,19 @@ public class AudioPlaybackService extends Service implements PlayerNotificationC
 
         //Initialize the notification layout buttons.
         Intent previousTrackIntent = new Intent();
-        previousTrackIntent.setAction(AudioPlaybackService.PREVIOUS_ACTION);
+        previousTrackIntent.setAction(SpotifyAudioPlaybackService.PREVIOUS_ACTION);
         PendingIntent previousTrackPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, previousTrackIntent, 0);
 
         Intent playPauseTrackIntent = new Intent();
-        playPauseTrackIntent.setAction(AudioPlaybackService.PLAY_PAUSE_ACTION);
+        playPauseTrackIntent.setAction(SpotifyAudioPlaybackService.PLAY_PAUSE_ACTION);
         PendingIntent playPauseTrackPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, playPauseTrackIntent, 0);
 
         Intent nextTrackIntent = new Intent();
-        nextTrackIntent.setAction(AudioPlaybackService.NEXT_ACTION);
+        nextTrackIntent.setAction(SpotifyAudioPlaybackService.NEXT_ACTION);
         PendingIntent nextTrackPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, nextTrackIntent, 0);
 
         Intent stopServiceIntent = new Intent();
-        stopServiceIntent.setAction(AudioPlaybackService.STOP_SERVICE);
+        stopServiceIntent.setAction(SpotifyAudioPlaybackService.STOP_SERVICE);
         PendingIntent stopServicePendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, stopServiceIntent, 0);
 
         //Check if audio is playing and set the appropriate play/pause button.

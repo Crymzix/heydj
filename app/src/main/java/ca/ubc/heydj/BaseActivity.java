@@ -3,6 +3,7 @@ package ca.ubc.heydj;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
@@ -38,12 +39,16 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
     protected Gson mGson;
     protected MainApplication mMain;
 
+    private Handler mHandler;
+    private Runnable mRunnable;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mMain = (MainApplication) getApplicationContext();
+        mMain = (MainApplication) this.getApplication();
         mGson = new Gson();
+        mHandler = new Handler();
 
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(Nearby.MESSAGES_API)
@@ -58,13 +63,14 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
 
             @Override
             public void onLost(Message message) {
-                onFound(message);
+                onLost(message);
             }
         };
     }
 
     @Override
     protected void onStop() {
+        mHandler.removeCallbacks(mRunnable);
         disconnect();
         super.onStop();
     }
@@ -125,6 +131,7 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
         if (!mGoogleApiClient.isConnected()) {
             mGoogleApiClient.connect();
         }
+
     }
 
     protected void disconnect() {
@@ -147,15 +154,41 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
         return mGoogleApiClient;
     }
 
-    protected void broadcastString(String broadcastString) {
-        mMessage = new Message(broadcastString.getBytes());
-        Nearby.Messages.publish(mGoogleApiClient, mMessage)
-                .setResultCallback(new ResultCallback<Status>() {
-                    @Override
-                    public void onResult(Status status) {
-                        Log.i(TAG, "publishing: " + status.describeContents() + " size: " + mMessage.getContent().length);
-                    }
-                });
+    /**
+     * Publish the string to all subscribers. Note that we unpublish
+     * the message before we publish (except on first run) in order
+     * to keep the data we are publishing fresh
+     *
+     * @param broadcastString
+     */
+    protected void broadcastString(final String broadcastString) {
+
+        if (mMessage == null) {
+            mMessage = new Message(broadcastString.getBytes());
+            Nearby.Messages.publish(mGoogleApiClient, mMessage)
+                    .setResultCallback(new ResultCallback<Status>() {
+                        @Override
+                        public void onResult(Status status) {
+                            Log.i(TAG, "publishing: " + status.describeContents() + " size: " + mMessage.getContent().length);
+                        }
+                    });
+        } else {
+            Nearby.Messages.unpublish(mGoogleApiClient, mMessage)
+                    .setResultCallback(new ErrorCheckingCallback("unpublish()", new Runnable() {
+                        @Override
+                        public void run() {
+                            mMessage = new Message(broadcastString.getBytes());
+                            Nearby.Messages.publish(mGoogleApiClient, mMessage)
+                                    .setResultCallback(new ResultCallback<Status>() {
+                                        @Override
+                                        public void onResult(Status status) {
+                                            Log.i(TAG, "publishing: " + status.describeContents() + " size: " + mMessage.getContent().length);
+                                        }
+                                    });
+                        }
+                    }));
+
+        }
     }
 
     /**

@@ -10,11 +10,10 @@ import android.widget.TextView;
 
 import com.squareup.picasso.Picasso;
 
-import java.util.HashMap;
 import java.util.List;
 
 import ca.ubc.heydj.R;
-import ca.ubc.heydj.events.BroadcastPlaylistEvent;
+import ca.ubc.heydj.models.BroadcastedPlaylist;
 import kaaes.spotify.webapi.android.models.Track;
 
 
@@ -27,10 +26,10 @@ public class NearbyBroadcastersAdapter extends RecyclerView.Adapter<NearbyBroadc
 
     private Context mContext;
     private LayoutInflater mLayoutInflater;
-    private List<BroadcastPlaylistEvent> mBroadcasts;
+    private List<BroadcastedPlaylist> mBroadcasts;
     private OnItemClickListener mOnItemClickListener;
 
-    public NearbyBroadcastersAdapter(Context context, List<BroadcastPlaylistEvent> broadcasts) {
+    public NearbyBroadcastersAdapter(Context context, List<BroadcastedPlaylist> broadcasts) {
         this.mContext = context;
         this.mLayoutInflater = LayoutInflater.from(context);
         this.mBroadcasts = broadcasts;
@@ -48,9 +47,9 @@ public class NearbyBroadcastersAdapter extends RecyclerView.Adapter<NearbyBroadc
     @Override
     public void onBindViewHolder(ViewHolder holder, final int position) {
 
-        final BroadcastPlaylistEvent broadcastPlaylistEvent = mBroadcasts.get(position);
+        final BroadcastedPlaylist broadcastedPlaylist = mBroadcasts.get(position);
 
-        Track currentTrack = broadcastPlaylistEvent.playlist.get(broadcastPlaylistEvent.current_track_index);
+        Track currentTrack = broadcastedPlaylist.playlist.get(broadcastedPlaylist.current_track_index);
         holder.trackArtist.setText(currentTrack.artists.get(0).name);
         holder.trackTitle.setText(currentTrack.name);
         Picasso.with(mContext)
@@ -61,7 +60,7 @@ public class NearbyBroadcastersAdapter extends RecyclerView.Adapter<NearbyBroadc
         holder.itemView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mOnItemClickListener.onItemClick(position, broadcastPlaylistEvent.playlist);
+                mOnItemClickListener.onItemClick(position, broadcastedPlaylist.playlist);
             }
         });
     }
@@ -71,13 +70,13 @@ public class NearbyBroadcastersAdapter extends RecyclerView.Adapter<NearbyBroadc
         return mBroadcasts.size();
     }
 
-    public void addItem(BroadcastPlaylistEvent broadcastPlaylistEvent) {
-        mBroadcasts.add(broadcastPlaylistEvent);
+    public void addItem(BroadcastedPlaylist broadcastedPlaylist) {
+        mBroadcasts.add(broadcastedPlaylist);
         notifyDataSetChanged();
     }
 
-    public void updateItem(int position, BroadcastPlaylistEvent broadcastPlaylistEvent) {
-        mBroadcasts.set(position, broadcastPlaylistEvent);
+    public void updateItem(int position, BroadcastedPlaylist broadcastedPlaylist) {
+        mBroadcasts.set(position, broadcastedPlaylist);
         notifyDataSetChanged();
     }
 

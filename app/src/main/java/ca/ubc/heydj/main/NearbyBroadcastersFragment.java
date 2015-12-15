@@ -7,7 +7,6 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,7 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 
 import ca.ubc.heydj.R;
-import ca.ubc.heydj.events.BroadcastPlaylistEvent;
+import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.NearbyEvent;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.Track;
@@ -44,7 +43,7 @@ public class NearbyBroadcastersFragment extends Fragment {
 
         mProgressBar = (ProgressBar) view.findViewById(R.id.progressBar);
         mHostsRecyclerView = (RecyclerView) view.findViewById(R.id.hosts_recyclerview);
-        mHostsAdapter = new NearbyBroadcastersAdapter(getActivity(), new ArrayList<BroadcastPlaylistEvent>());
+        mHostsAdapter = new NearbyBroadcastersAdapter(getActivity(), new ArrayList<BroadcastedPlaylist>());
         mHostsRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.VERTICAL, false));
         mHostsRecyclerView.setAdapter(mHostsAdapter);
         mHostsAdapter.setOnItemClickListener(new NearbyBroadcastersAdapter.OnItemClickListener() {
@@ -71,7 +70,7 @@ public class NearbyBroadcastersFragment extends Fragment {
         super.onStop();
     }
 
-    public void onBroadcastPlaylistEvent(final BroadcastPlaylistEvent broadcastPlaylistEvent) {
+    public void onBroadcastPlaylistEvent(final BroadcastedPlaylist broadcastedPlaylist) {
 
         getActivity().runOnUiThread(new Runnable() {
             @Override
@@ -80,11 +79,11 @@ public class NearbyBroadcastersFragment extends Fragment {
                     mHostsRecyclerView.setVisibility(View.VISIBLE);
                     mProgressBar.setVisibility(View.GONE);
 
-                    if (!mHostIds.containsKey(broadcastPlaylistEvent.host_id)) {
-                        mHostIds.put(broadcastPlaylistEvent.host_id, mHostsAdapter.getItemCount());
-                        mHostsAdapter.addItem(broadcastPlaylistEvent);
+                    if (!mHostIds.containsKey(broadcastedPlaylist.host_id)) {
+                        mHostIds.put(broadcastedPlaylist.host_id, mHostsAdapter.getItemCount());
+                        mHostsAdapter.addItem(broadcastedPlaylist);
                     } else {
-                        mHostsAdapter.updateItem(mHostIds.get(broadcastPlaylistEvent.host_id), broadcastPlaylistEvent);
+                        mHostsAdapter.updateItem(mHostIds.get(broadcastedPlaylist.host_id), broadcastedPlaylist);
                     }
                 }
             }
