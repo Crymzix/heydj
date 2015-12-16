@@ -51,7 +51,7 @@ public class NearbyBroadcastersFragment extends Fragment {
             public void onItemClick(int position, List<Track> tracks) {
                 Intent intent = new Intent(getActivity(), BroadcastedPlaylistActivity.class);
                 intent.putParcelableArrayListExtra(BroadcastedPlaylistActivity.BROADCASTED_TRACKS_KEY, (ArrayList<? extends Parcelable>) tracks);
-                startActivity(intent);
+                getActivity().startActivityForResult(intent, MainActivity.QUEUING_REQUEST);
             }
         });
 

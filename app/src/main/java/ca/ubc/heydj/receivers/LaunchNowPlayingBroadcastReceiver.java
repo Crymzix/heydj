@@ -4,6 +4,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
+import ca.ubc.heydj.main.MainActivity;
+
 /**
  * Broadcast receivers for the notifications button events,
  * as this is the only way to react to those events as of now
@@ -15,6 +17,8 @@ public class LaunchNowPlayingBroadcastReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        // Open now playing activity
+        /*Intent nowPlayingIntent = new Intent(DispatchActivity.this, MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        startActivity(intent);*/
     }
 }

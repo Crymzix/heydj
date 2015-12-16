@@ -5,8 +5,11 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.TransitionDrawable;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.support.v4.content.ContextCompat;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -15,8 +18,8 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.AdapterView;
 import android.widget.FrameLayout;
@@ -44,7 +47,7 @@ import ca.ubc.heydj.events.PlayTrackEvent;
 import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.NearbyEvent;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
-import ca.ubc.heydj.spotify.SpotifyAudioPlaybackService;
+import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
 import ca.ubc.heydj.services.BroadcasterService;
 import ca.ubc.heydj.spotify.SpotifyLibraryFragment;
 import ca.ubc.heydj.utils.BlurTransformation;
@@ -59,9 +62,9 @@ public class MainActivity extends BaseActivity
 
     public static final String SPOTIFY_ACCESS_TOKEN_KEY = "spotify_access_token";
 
-    private static final int SPOTIFY_AUTH_REQUEST = 133;
+    public static final int SPOTIFY_AUTH_REQUEST = 123;
     public static final int NOW_PLAYING_REQUEST = 124;
-
+    public static final int QUEUING_REQUEST = 125;
 
     private SharedPreferences mSharedPrefs;
 
@@ -72,6 +75,9 @@ public class MainActivity extends BaseActivity
     private int mCurrentTrackIndex = 0;
     private List<SavedTrack> mCurrentTracks;
 
+    private Toolbar mToolbar;
+    private TextView mToolbarTitle;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -80,15 +86,16 @@ public class MainActivity extends BaseActivity
 
         mSharedPrefs = getSharedPreferences("ca.ubc.heydj", Context.MODE_PRIVATE);
 
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
+        mToolbar = (Toolbar) findViewById(R.id.toolbar);
+        setSupportActionBar(mToolbar);
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
-                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+                this, drawer, mToolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.setDrawerListener(toggle);
         toggle.syncState();
 
+        // Setup the player controls that will be visible globally when music is playing
         mPlaybarContainer = (FrameLayout) findViewById(R.id.play_bar_container);
         mPlaybar = (RelativeLayout) LayoutInflater.from(this).inflate(R.layout.play_bar_layout, null, false);
         mPlaybar.setOnClickListener(this);
@@ -101,8 +108,14 @@ public class MainActivity extends BaseActivity
         mTrackBar.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
             @Override
             public void onGlobalLayout() {
-                trackBarLayoutParams.setMargins(0,-mTrackBar.getHeight()/2,0,0);
+                trackBarLayoutParams.setMargins(0,-mTrackBar.getHeight()/2,0,0); // centers the center seek bar line on the top edge of the container
                 mTrackBar.setLayoutParams(trackBarLayoutParams);
+            }
+        });
+        mTrackBar.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                return true; // block touch events
             }
         });
 
@@ -195,6 +208,15 @@ public class MainActivity extends BaseActivity
         if (requestCode == NOW_PLAYING_REQUEST) {
             if (resultCode == RESULT_OK) {
                 connect();
+            }
+        }
+
+        // If queuing is enabled, update UI
+        if (requestCode == QUEUING_REQUEST) {
+            if (resultCode == RESULT_OK) {
+                mToolbar.setBackgroundResource(R.drawable.toolbar_orange_gradient);
+            } else {
+                mToolbar.setBackgroundResource(R.drawable.toolbar_blue_gradient);
             }
         }
     }

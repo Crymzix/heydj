@@ -1,8 +1,10 @@
 package ca.ubc.heydj.nowplaying;
 
 import android.content.Intent;
+import android.content.res.Resources;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.TransitionDrawable;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
@@ -13,8 +15,9 @@ import android.support.v4.view.ViewPager;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewTreeObserver;
+import android.widget.CompoundButton;
 import android.widget.SeekBar;
+import android.widget.Switch;
 import android.widget.ToggleButton;
 
 import java.util.List;
@@ -23,18 +26,20 @@ import ca.ubc.heydj.BaseActivity;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
-import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.PlayTrackEvent;
-import ca.ubc.heydj.spotify.SpotifyAudioPlaybackService;
+import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
 import de.greenrobot.event.EventBus;
-import de.greenrobot.event.SubscriberExceptionEvent;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
 /**
+ * Activity to show currently playing track. Subscriver to AudioFeedbackEvents
+ * delivered by the AudioPlaybackService.
+ *
  * Created by Chris Li on 12/12/2015.
  */
-public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPageChangeListener, View.OnClickListener, SeekBar.OnSeekBarChangeListener {
+public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPageChangeListener,
+        View.OnClickListener, SeekBar.OnSeekBarChangeListener {
 
     private static final String TAG = NowPlayingActivity.class.getSimpleName();
 
@@ -50,6 +55,9 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
     private TracksPagerAdapter mTracksAdapter;
     private ToggleButton mHostButton;
     private SeekBar mTrackBar;
+
+    // use to make sure we publish a message right away when initiating broadcast
+    private boolean mBroadcastStarted = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -175,6 +183,7 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
 
             case R.id.host_button:
                 if (((ToggleButton) v).isChecked()) {
+                    mBroadcastStarted = true;
                     connect();
                 } else {
                     disconnect();
@@ -216,20 +225,31 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         if (mMain.isBroadcasting()) {
             mHostButton.setChecked(true);
 
-            if (getGoogleApiClient().isConnected() && audioFeedbackEvent.getPlayerState().playing) {
-                switch (audioFeedbackEvent.getType()) {
+            if (getGoogleApiClient().isConnected()) {
+                if (audioFeedbackEvent.getPlayerState().playing) {
 
-                    case AudioFeedbackEvent.STARTED:
-                    case AudioFeedbackEvent.TRACK_CHANGED:
-                        mTrackPager.setCurrentItem(audioFeedbackEvent.getCurrentTrackIndex(), true);
-                        BroadcastedPlaylist broadcastedPlaylist = new BroadcastedPlaylist();
-                        broadcastedPlaylist.playlist = audioFeedbackEvent.getTracks();
-                        broadcastedPlaylist.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
-                        broadcastedPlaylist.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
-                        broadcastedPlaylist.host_id = mMain.getUniqueID();
-                        Log.e(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
+                    BroadcastedPlaylist broadcastedPlaylist = new BroadcastedPlaylist();
+                    broadcastedPlaylist.playlist = audioFeedbackEvent.getTracks();
+                    broadcastedPlaylist.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
+                    broadcastedPlaylist.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
+                    broadcastedPlaylist.host_id = mMain.getUniqueID();
+
+                    switch (audioFeedbackEvent.getType()) {
+
+                        case AudioFeedbackEvent.STARTED:
+                        case AudioFeedbackEvent.TRACK_CHANGED:
+                            mTrackPager.setCurrentItem(audioFeedbackEvent.getCurrentTrackIndex(), true);
+                            broadcastString(mGson.toJson(broadcastedPlaylist));
+                            Log.i(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
+                            break;
+                    }
+
+                    if (mBroadcastStarted) {
                         broadcastString(mGson.toJson(broadcastedPlaylist));
-                        break;
+                        mBroadcastStarted = false;
+                        Log.i(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
+                    }
+
                 }
             }
         } else {

@@ -86,7 +86,7 @@
         </receiver>
 
         <service android:name=".services.BroadcasterService" />
-        <service android:name=".spotify.SpotifyAudioPlaybackService" />
+        <service android:name=".services.SpotifyAudioPlaybackService" />
 
     </application>
 

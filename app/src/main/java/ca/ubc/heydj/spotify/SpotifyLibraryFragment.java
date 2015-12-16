@@ -7,16 +7,26 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
+import android.view.GestureDetector;
 import android.view.LayoutInflater;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.malinskiy.superrecyclerview.SuperRecyclerView;
+import com.malinskiy.superrecyclerview.swipe.SparseItemRemoveAnimator;
+import com.malinskiy.superrecyclerview.swipe.SwipeDismissRecyclerViewTouchListener;
+import com.malinskiy.superrecyclerview.swipe.SwipeItemManagerInterface;
+
 import java.util.ArrayList;
 
+import ca.ubc.heydj.MainApplication;
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.PlayTrackEvent;
 import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
+import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
@@ -35,7 +45,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
     public static final String TAG = SpotifyLibraryFragment.class.getSimpleName();
 
     private TracksAdapter mTracksAdapter;
-    private RecyclerView mTracksRecyclerView;
+    private SuperRecyclerView mTracksRecyclerView;
 
     @Nullable
     @Override
@@ -43,7 +53,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
 
         View view = inflater.inflate(R.layout.fragment_spotify_library, container, false);
 
-        mTracksRecyclerView = (RecyclerView) view.findViewById(R.id.tracks_recyclerview);
+        mTracksRecyclerView = (SuperRecyclerView) view.findViewById(R.id.tracks_recyclerview);
         mTracksRecyclerView.setLayoutManager(new LinearLayoutManager(getActivity(), LinearLayoutManager.VERTICAL, false));
 
         SpotifyApi spotifyApi = new SpotifyApi();
@@ -55,6 +65,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
             public void success(Pager<SavedTrack> savedTrackPager, Response response) {
                 mTracksAdapter = new TracksAdapter(getActivity(), savedTrackPager.items);
                 mTracksRecyclerView.setAdapter(mTracksAdapter);
+                mTracksAdapter.setMode(SwipeItemManagerInterface.Mode.Single);
                 mTracksAdapter.setOnItemClickListener(SpotifyLibraryFragment.this);
             }
 

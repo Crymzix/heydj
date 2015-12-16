@@ -7,4 +7,6 @@
     <color name="colorDivider">#B6B6B6</color>
     <color name="colorWhite">#ffffff</color>
     <color name="colorBlackTransparent">#af000000</color>
+    <color name="colorGreen">#388e3c</color>
+    <color name="colorOrange">#d84315</color>
 </resources>

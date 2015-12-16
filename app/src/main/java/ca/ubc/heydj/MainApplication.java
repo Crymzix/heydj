@@ -3,7 +3,7 @@ package ca.ubc.heydj;
 import android.app.Application;
 import android.provider.Settings;
 
-import ca.ubc.heydj.spotify.SpotifyAudioPlaybackService;
+import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
 
 /**
  * Singleton class that provides access to common objects
@@ -17,9 +17,13 @@ public class MainApplication extends Application {
     private String mSpotifyAccessToken;
 
     private boolean mIsBroadcasting = false;
-    private boolean mIsListening = false;
+    private boolean mIsQueuing = false;
+
+    // Generated unique id for the device
     private String mUniqueID;
 
+    // The id of the host to queue a song to
+    private String mCurrentHostId;
 
     @Override
     public void onCreate() {
@@ -40,12 +44,12 @@ public class MainApplication extends Application {
         return mUniqueID;
     }
 
-    public boolean isListening() {
-        return mIsListening;
+    public boolean isQueuing() {
+        return mIsQueuing;
     }
 
-    public void setIsListening(boolean mIsListening) {
-        this.mIsListening = mIsListening;
+    public void setIsQueuing(boolean mIsListening) {
+        this.mIsQueuing = mIsListening;
     }
 
     public SpotifyAudioPlaybackService getSpotifyAudioService() {
@@ -62,5 +66,13 @@ public class MainApplication extends Application {
 
     public void setSpotifyAccessToken(String mSpotifyAccessToken) {
         this.mSpotifyAccessToken = mSpotifyAccessToken;
+    }
+
+    public String getCurrentHostId() {
+        return mCurrentHostId;
+    }
+
+    public void setCurrentHostId(String mCurrentHostId) {
+        this.mCurrentHostId = mCurrentHostId;
     }
 }

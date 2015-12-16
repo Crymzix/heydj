@@ -9,7 +9,33 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:background="@drawable/toolbar_blue_gradient"
-        app:popupTheme="@style/AppTheme.PopupOverlay" />
+        app:popupTheme="@style/AppTheme.PopupOverlay">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/toolbar_title"
+                android:layout_centerVertical="true"
+                android:fontFamily="sans-serif-light"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:text="@string/local_playlist_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <Switch
+                android:layout_centerVertical="true"
+                android:layout_marginRight="20dp"
+                android:id="@+id/queue_switch"
+                android:layout_alignParentRight="true"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+        </RelativeLayout>
+
+    </android.support.v7.widget.Toolbar>
 
 
     <android.support.v7.widget.RecyclerView

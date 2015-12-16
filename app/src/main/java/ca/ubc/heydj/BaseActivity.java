@@ -157,7 +157,7 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
     /**
      * Publish the string to all subscribers. Note that we unpublish
      * the message before we publish (except on first run) in order
-     * to keep the data we are publishing fresh
+     * to keep the data we are publishing fresh.
      *
      * @param broadcastString
      */

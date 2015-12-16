@@ -1,4 +1,4 @@
-package ca.ubc.heydj.spotify;
+package ca.ubc.heydj.services;
 
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -23,6 +23,7 @@ import com.spotify.sdk.android.player.PlayerNotificationCallback;
 import com.spotify.sdk.android.player.PlayerState;
 import com.spotify.sdk.android.player.PlayerStateCallback;
 import com.spotify.sdk.android.player.Spotify;
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,7 @@ import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.PlayTrackEvent;
-import ca.ubc.heydj.main.MainActivity;
+import ca.ubc.heydj.nowplaying.NowPlayingActivity;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
@@ -66,9 +67,9 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
     private Runnable mRunnable;
 
     private List<String> mPlaylist;
-    private String mCurrentTrack = null;
+    private String mCurrentTrackUri = null;
     private int mCurrentTrackIndex = 0;
-    private int mPlaylistSize = 0;
+    private SavedTrack mCurrentTrack = null;
 
     @Override
     public void onCreate() {
@@ -159,7 +160,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
             case AudioPlaybackEvent.NEXT:
                 mPlayer.skipToNext();
-                if (mCurrentTrackIndex < mPlaylistSize) {
+                if (mCurrentTrackIndex + 1 < mPlaylist.size()) {
                     mCurrentTrackIndex++;
                 }
                 mNotificationManager.notify(mNotificationId, buildNotification());
@@ -197,9 +198,12 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         PlayConfig playConfig = PlayConfig.createFor(mPlaylist);
         playConfig.withTrackIndex(playTrackEvent.getCurrentTrackIndex());
         mCurrentTrackIndex = playTrackEvent.getCurrentTrackIndex();
-        mPlaylistSize = playTrackEvent.getUserTracks().size();
+        mCurrentTrack = playTrackEvent.getUserTracks().get(mCurrentTrackIndex);
 
         if (mPlayer != null) {
+
+            mHandler.removeCallbacks(mRunnable);
+
             // Repeatedly broadcast player state to (internal) subscribers
             mRunnable = new Runnable() {
                 @Override
@@ -214,9 +218,9 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
                             if (playerState.playing) {
                                 audioFeedbackEvent.setType(AudioFeedbackEvent.PLAYING);
-                                if (mCurrentTrack == null) {
+                                if (mCurrentTrackUri == null) {
                                     audioFeedbackEvent.setType(AudioFeedbackEvent.STARTED);
-                                } else if (!mCurrentTrack.equals(playerState.trackUri)) {
+                                } else if (!mCurrentTrackUri.equals(playerState.trackUri)) {
                                     // Manually sending a track changed event
                                     if (mPlaylist.indexOf(playerState.trackUri) < mCurrentTrackIndex) {
                                         mCurrentTrackIndex--;
@@ -225,11 +229,10 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
                                     }
                                     audioFeedbackEvent.setType(AudioFeedbackEvent.TRACK_CHANGED);
                                 }
-                                mCurrentTrack = playerState.trackUri;
+                                mCurrentTrackUri = playerState.trackUri;
                             }
 
                             EventBus.getDefault().post(audioFeedbackEvent);
-
                             mHandler.postDelayed(mRunnable, 1000);
                         }
                     });
@@ -345,12 +348,12 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         }
 
         //Set the notification content.
-        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_one, "Title");
-        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_two, "Artist");
-        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_three, "Album");
+        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_one, mCurrentTrack.track.name);
+        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_two, mCurrentTrack.track.artists.get(0).name);
+        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_three, mCurrentTrack.track.album.name);
 
-        notificationView.setTextViewText(R.id.notification_base_line_one, "Title");
-        notificationView.setTextViewText(R.id.notification_base_line_two, "Artist");
+        notificationView.setTextViewText(R.id.notification_base_line_one, mCurrentTrack.track.name);
+        notificationView.setTextViewText(R.id.notification_base_line_two, mCurrentTrack.track.artists.get(0).name);
 
         //We're smack dab in the middle of the queue, so keep the previous and next buttons enabled.
         expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous, View.VISIBLE);
@@ -369,10 +372,6 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         expNotificationView.setOnClickPendingIntent(R.id.notification_expanded_base_collapse, stopServicePendingIntent);
         notificationView.setOnClickPendingIntent(R.id.notification_base_collapse, stopServicePendingIntent);
 
-        //Set the album art.
-        expNotificationView.setImageViewResource(R.id.notification_expanded_base_image, R.drawable.album_artists_light);
-        notificationView.setImageViewResource(R.id.notification_base_image, R.drawable.album_artists_light);
-
         //Attach the shrunken layout to the notification.
         mNotificationBuilder.setContent(notificationView);
 
@@ -384,6 +383,14 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         notification.flags = Notification.FLAG_FOREGROUND_SERVICE |
                 Notification.FLAG_NO_CLEAR |
                 Notification.FLAG_ONGOING_EVENT;
+
+        //Set the album art.
+        Picasso.with(this)
+                .load(mCurrentTrack.track.album.images.get(2).url)
+                .into(expNotificationView, R.id.notification_expanded_base_image, mNotificationId, notification);
+        Picasso.with(this)
+                .load(mCurrentTrack.track.album.images.get(2).url)
+                .into(notificationView, R.id.notification_base_image, mNotificationId, notification);
 
         return notification;
     }
