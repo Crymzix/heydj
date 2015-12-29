@@ -28,11 +28,13 @@ import kaaes.spotify.webapi.android.models.Track;
 public class BroadcastedPlaylistActivity extends AppCompatActivity implements CompoundButton.OnCheckedChangeListener{
 
     public static final String BROADCASTED_TRACKS_KEY = "broadcasted_tracks_key";
+    public static final String BROADCASTER_ID_KEY = "broadcaster_id";
 
     private Toolbar mToolbar;
     private TextView mToolbarTitle;
     private BroadcastedPlaylistAdapter mBroadcastedPlaylistAdapter;
 
+    private String mHostId;
     private MainApplication mMain;
 
     @Override
@@ -73,6 +75,8 @@ public class BroadcastedPlaylistActivity extends AppCompatActivity implements Co
 
         queuingSwitch.setOnCheckedChangeListener(this);
         List<Track> tracks = getIntent().getParcelableArrayListExtra(BROADCASTED_TRACKS_KEY);
+        mHostId = getIntent().getStringExtra(BROADCASTER_ID_KEY);
+
         RecyclerView tracksRecyclerView = (RecyclerView) findViewById(R.id.tracks_recycler_view);
         mBroadcastedPlaylistAdapter = new BroadcastedPlaylistAdapter(this, tracks);
         mBroadcastedPlaylistAdapter.setIsQueuing(mMain.isQueuing());
@@ -87,12 +91,14 @@ public class BroadcastedPlaylistActivity extends AppCompatActivity implements Co
 
         if (isChecked) {
             mMain.setIsQueuing(true);
+            mMain.setCurrentHostId(mHostId);
             mToolbarTitle.setText(R.string.queuing_title);
             mBroadcastedPlaylistAdapter.setIsQueuing(true);
             backgrounds[0] = ContextCompat.getDrawable(this, R.drawable.toolbar_blue_gradient);
             backgrounds[1] = ContextCompat.getDrawable(this, R.drawable.toolbar_orange_gradient);
         } else {
             mMain.setIsQueuing(false);
+            mMain.setCurrentHostId(mHostId);
             mToolbarTitle.setText(R.string.local_playlist_title);
             mBroadcastedPlaylistAdapter.setIsQueuing(false);
             backgrounds[0] = ContextCompat.getDrawable(this, R.drawable.toolbar_orange_gradient);

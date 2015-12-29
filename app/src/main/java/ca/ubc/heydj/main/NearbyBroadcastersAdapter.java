@@ -60,7 +60,7 @@ public class NearbyBroadcastersAdapter extends RecyclerView.Adapter<NearbyBroadc
         holder.itemView.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mOnItemClickListener.onItemClick(position, broadcastedPlaylist.playlist);
+                mOnItemClickListener.onItemClick(position, broadcastedPlaylist.playlist, broadcastedPlaylist.host_id);
             }
         });
     }
@@ -98,7 +98,7 @@ public class NearbyBroadcastersAdapter extends RecyclerView.Adapter<NearbyBroadc
     }
 
     public interface OnItemClickListener {
-        void onItemClick(int position, List<Track> tracks);
+        void onItemClick(int position, List<Track> tracks, String hostId);
     }
 
 }

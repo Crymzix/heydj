@@ -11,10 +11,11 @@
         android:src="@drawable/ic_av_album"
         android:layout_marginLeft="10dp"
         android:layout_marginRight="10dp"
+        android:layout_centerVertical="true"
         android:id="@+id/album_image"
         android:layout_marginBottom="15dp"
-        android:layout_width="64dp"
-        android:layout_height="64dp" />
+        android:layout_width="50dp"
+        android:layout_height="50dp" />
 
     <TextView
         android:layout_toRightOf="@+id/album_image"

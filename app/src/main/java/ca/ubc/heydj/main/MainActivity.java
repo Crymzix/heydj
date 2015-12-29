@@ -88,6 +88,7 @@ public class MainActivity extends BaseActivity
 
         mToolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(mToolbar);
+        setToolbarMode();
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
@@ -129,6 +130,26 @@ public class MainActivity extends BaseActivity
         AuthenticationRequest request = builder.build();
 
         AuthenticationClient.openLoginActivity(this, SPOTIFY_AUTH_REQUEST, request);
+    }
+
+    public void setToolbarMode() {
+
+        if (mToolbar == null) {
+            return;
+        }
+
+        Drawable backgrounds[] = new Drawable[2];
+        if (mMain.isQueuing()) {
+            backgrounds[0] = ContextCompat.getDrawable(this, R.drawable.toolbar_blue_gradient);
+            backgrounds[1] = ContextCompat.getDrawable(this, R.drawable.toolbar_orange_gradient);
+        } else {
+            backgrounds[0] = ContextCompat.getDrawable(this, R.drawable.toolbar_orange_gradient);
+            backgrounds[1] = ContextCompat.getDrawable(this, R.drawable.toolbar_blue_gradient);
+        }
+
+        TransitionDrawable transitionDrawable = new TransitionDrawable(backgrounds);
+        mToolbar.setBackground(transitionDrawable);
+        transitionDrawable.startTransition(1000);
     }
 
     private void createMenuItems() {
@@ -257,6 +278,8 @@ public class MainActivity extends BaseActivity
         return mMain.getSpotifyAccessToken();
     }
 
+    /*** Event bus subscribers ***/
+
     /**
      * Subscribe to events pertaining to Nearby APIs
      *
@@ -339,7 +362,10 @@ public class MainActivity extends BaseActivity
                         broadcastedPlaylist.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
                         broadcastedPlaylist.host_id = mMain.getUniqueID();
                         Log.e(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
-                        broadcastString(mGson.toJson(broadcastedPlaylist));
+                        broadcastString(mGson.toJson(broadcastedPlaylist), null);
+                        break;
+                    case AudioFeedbackEvent.TRACK_QUEUED:
+
                         break;
                 }
             }

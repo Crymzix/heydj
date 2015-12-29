@@ -20,11 +20,13 @@ public class AudioFeedbackEvent {
     public static final int PLAYING = 2;
     public static final int TRACK_CHANGED = 3;
     public static final int STOPPED = 4;
+    public static final int TRACK_QUEUED = 5;
 
     private List<SavedTrack> playlist;
     private int currentTrackIndex = 0;
     private PlayerState playerState;
     private int type;
+    private SavedTrack queuedTrack;
 
     public List<SavedTrack> getPlaylist() {
         return playlist;
@@ -66,5 +68,13 @@ public class AudioFeedbackEvent {
 
     public void setType(int type) {
         this.type = type;
+    }
+
+    public SavedTrack getQueuedTrack() {
+        return queuedTrack;
+    }
+
+    public void setQueuedTrack(SavedTrack queuedTrack) {
+        this.queuedTrack = queuedTrack;
     }
 }

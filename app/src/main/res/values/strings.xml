@@ -13,4 +13,17 @@
     <string name="local_playlist_title">Local Playlist</string>
     <string name="queuing_title">Queuing</string>
     <string name="queued_message">Queued</string>
+    <string name="playing_text">playing</string>
+    <string name="paused_text">paused</string>
+
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="unknown_album">Unknown Album</string>
+    <string name="unknown_title">Unknown Title</string>
+    <string name="unknown_genre">Unknown Genre</string>
+    <string name="unknown_album_artist">Unknown Album Artist</string>
+    <string name="album_small">album</string>
+    <string name="song_small">song</string>
+    <string name="albums_small">albums</string>
+    <string name="songs_small">songs</string>
+
 </resources>

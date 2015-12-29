@@ -17,6 +17,7 @@ import com.google.android.gms.nearby.Nearby;
 import com.google.android.gms.nearby.messages.Message;
 import com.google.android.gms.nearby.messages.MessageListener;
 import com.google.gson.Gson;
+import com.pubnub.api.Pubnub;
 
 /**
  * Base activity that contains useful functionality to inherit from.
@@ -38,6 +39,7 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
     private boolean mResolvingError = false;
     protected Gson mGson;
     protected MainApplication mMain;
+    protected Pubnub mPubNub;
 
     private Handler mHandler;
     private Runnable mRunnable;
@@ -47,6 +49,7 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
         super.onCreate(savedInstanceState);
 
         mMain = (MainApplication) this.getApplication();
+        mPubNub = new Pubnub(getResources().getString(R.string.pubnub_publish_api_key), getResources().getString(R.string.pubnub_subscribe_api_key));
         mGson = new Gson();
         mHandler = new Handler();
 
@@ -63,7 +66,7 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
 
             @Override
             public void onLost(Message message) {
-                onLost(message);
+                onMessageLost(message);
             }
         };
     }
@@ -154,6 +157,10 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
         return mGoogleApiClient;
     }
 
+    public Pubnub getPubNub(){
+        return mPubNub;
+    }
+
     /**
      * Publish the string to all subscribers. Note that we unpublish
      * the message before we publish (except on first run) in order
@@ -161,7 +168,7 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
      *
      * @param broadcastString
      */
-    protected void broadcastString(final String broadcastString) {
+    public void broadcastString(final String broadcastString, @Nullable final NearbyCallback nearbyCallbackListener) {
 
         if (mMessage == null) {
             mMessage = new Message(broadcastString.getBytes());
@@ -170,6 +177,9 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
                         @Override
                         public void onResult(Status status) {
                             Log.i(TAG, "publishing: " + status.describeContents() + " size: " + mMessage.getContent().length);
+                            if (nearbyCallbackListener != null) {
+                                nearbyCallbackListener.onResult(status);
+                            }
                         }
                     });
         } else {
@@ -248,6 +258,11 @@ public class BaseActivity extends AppCompatActivity implements GoogleApiClient.C
 
     protected void onMessageLost(Message message) {
         Log.i(TAG, "Message lost: " + message.describeContents());
+        mMain.setCurrentHostId(null);
+    }
+
+    public interface NearbyCallback {
+        void onResult(Status status);
     }
 
 }

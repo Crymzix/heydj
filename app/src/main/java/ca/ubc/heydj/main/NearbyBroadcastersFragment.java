@@ -48,9 +48,10 @@ public class NearbyBroadcastersFragment extends Fragment {
         mHostsRecyclerView.setAdapter(mHostsAdapter);
         mHostsAdapter.setOnItemClickListener(new NearbyBroadcastersAdapter.OnItemClickListener() {
             @Override
-            public void onItemClick(int position, List<Track> tracks) {
+            public void onItemClick(int position, List<Track> tracks, String hostId) {
                 Intent intent = new Intent(getActivity(), BroadcastedPlaylistActivity.class);
                 intent.putParcelableArrayListExtra(BroadcastedPlaylistActivity.BROADCASTED_TRACKS_KEY, (ArrayList<? extends Parcelable>) tracks);
+                intent.putExtra(BroadcastedPlaylistActivity.BROADCASTER_ID_KEY, hostId);
                 getActivity().startActivityForResult(intent, MainActivity.QUEUING_REQUEST);
             }
         });

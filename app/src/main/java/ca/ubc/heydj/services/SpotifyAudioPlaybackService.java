@@ -26,6 +26,7 @@ import com.spotify.sdk.android.player.Spotify;
 import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import ca.ubc.heydj.MainApplication;
@@ -33,6 +34,7 @@ import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.PlayTrackEvent;
+import ca.ubc.heydj.models.QueuedTrack;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
@@ -67,9 +69,9 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
     private Runnable mRunnable;
 
     private List<String> mPlaylist;
-    private String mCurrentTrackUri = null;
     private int mCurrentTrackIndex = 0;
-    private SavedTrack mCurrentTrack = null;
+    private List<SavedTrack> mCurrentTracks;
+    private SavedTrack mQueuedTrack = null;
 
     @Override
     public void onCreate() {
@@ -123,6 +125,9 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
             }
         });
     }
+
+
+    /*** Event bus subscribers ***/
 
     public void onEvent(PlayTrackEvent playTrackEvent) {
         playSpotifyTrack(playTrackEvent);
@@ -182,6 +187,13 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         }
     }
 
+    public void onEvent(QueuedTrack queuedTrack) {
+
+        SavedTrack savedTrackWrapper = new SavedTrack();
+        savedTrackWrapper.track = queuedTrack.track;
+        mQueuedTrack = savedTrackWrapper;
+    }
+
     /**
      * Plays a track in a given playlist
      *
@@ -191,20 +203,20 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
         // Create list of Spotify URIs and pass it to the player
         mPlaylist = new ArrayList<>();
-        for (SavedTrack savedTrack : playTrackEvent.getUserTracks()) {
+        mCurrentTracks = playTrackEvent.getUserTracks();
+        for (SavedTrack savedTrack : mCurrentTracks) {
             mPlaylist.add("spotify:track:" + savedTrack.track.id);
         }
 
         PlayConfig playConfig = PlayConfig.createFor(mPlaylist);
         playConfig.withTrackIndex(playTrackEvent.getCurrentTrackIndex());
         mCurrentTrackIndex = playTrackEvent.getCurrentTrackIndex();
-        mCurrentTrack = playTrackEvent.getUserTracks().get(mCurrentTrackIndex);
 
         if (mPlayer != null) {
 
             mHandler.removeCallbacks(mRunnable);
 
-            // Repeatedly broadcast player state to (internal) subscribers
+            // Repeatedly broadcast player state to (internal) subscribers, this currently acts as an event loop
             mRunnable = new Runnable() {
                 @Override
                 public void run() {
@@ -213,25 +225,33 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
                         public void onPlayerState(PlayerState playerState) {
                             AudioFeedbackEvent audioFeedbackEvent = new AudioFeedbackEvent();
                             audioFeedbackEvent.setPlayerState(playerState);
-                            audioFeedbackEvent.setCurrentTrackIndex(mCurrentTrackIndex);
                             audioFeedbackEvent.setPlaylist(playTrackEvent.getUserTracks());
 
-                            if (playerState.playing) {
+                            mIsPlaying = playerState.playing;
+                            if (mIsPlaying) {
                                 audioFeedbackEvent.setType(AudioFeedbackEvent.PLAYING);
-                                if (mCurrentTrackUri == null) {
-                                    audioFeedbackEvent.setType(AudioFeedbackEvent.STARTED);
-                                } else if (!mCurrentTrackUri.equals(playerState.trackUri)) {
-                                    // Manually sending a track changed event
-                                    if (mPlaylist.indexOf(playerState.trackUri) < mCurrentTrackIndex) {
-                                        mCurrentTrackIndex--;
-                                    } else if (mPlaylist.indexOf(playerState.trackUri) > mCurrentTrackIndex) {
-                                        mCurrentTrackIndex++;
-                                    }
+
+                                // Manually create track change event
+                                if (mCurrentTrackIndex != mPlaylist.indexOf(playerState.trackUri)) {
+                                    mCurrentTrackIndex = mPlaylist.indexOf(playerState.trackUri);
                                     audioFeedbackEvent.setType(AudioFeedbackEvent.TRACK_CHANGED);
+                                    mNotificationManager.notify(mNotificationId, buildNotification());
                                 }
-                                mCurrentTrackUri = playerState.trackUri;
+
+                                // Queue track
+                                if (mQueuedTrack != null) {
+                                    audioFeedbackEvent.setQueuedTrack(mQueuedTrack);
+                                    audioFeedbackEvent.setType(AudioFeedbackEvent.TRACK_QUEUED);
+                                    mCurrentTracks.add(mCurrentTrackIndex + 1, mQueuedTrack);
+                                    audioFeedbackEvent.setPlaylist(mCurrentTracks);
+                                    mPlayer.queue(mQueuedTrack.track.uri);
+                                    mQueuedTrack = null;
+                                }
+                            } else {
+                                mNotificationManager.notify(mNotificationId, buildNotification());
                             }
 
+                            audioFeedbackEvent.setCurrentTrackIndex(mCurrentTrackIndex);
                             EventBus.getDefault().post(audioFeedbackEvent);
                             mHandler.postDelayed(mRunnable, 1000);
                         }
@@ -305,6 +325,8 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
     private Notification buildNotification() {
 
+        SavedTrack currentTrack = mCurrentTracks.get(mCurrentTrackIndex);
+
         NotificationCompat.Builder mNotificationBuilder = new NotificationCompat.Builder(mContext);
         mNotificationBuilder.setColor(Color.BLACK);
         mNotificationBuilder.setOngoing(true);
@@ -348,12 +370,12 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         }
 
         //Set the notification content.
-        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_one, mCurrentTrack.track.name);
-        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_two, mCurrentTrack.track.artists.get(0).name);
-        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_three, mCurrentTrack.track.album.name);
+        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_one, currentTrack.track.name);
+        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_two, currentTrack.track.artists.get(0).name);
+        expNotificationView.setTextViewText(R.id.notification_expanded_base_line_three, currentTrack.track.album.name);
 
-        notificationView.setTextViewText(R.id.notification_base_line_one, mCurrentTrack.track.name);
-        notificationView.setTextViewText(R.id.notification_base_line_two, mCurrentTrack.track.artists.get(0).name);
+        notificationView.setTextViewText(R.id.notification_base_line_one, currentTrack.track.name);
+        notificationView.setTextViewText(R.id.notification_base_line_two, currentTrack.track.artists.get(0).name);
 
         //We're smack dab in the middle of the queue, so keep the previous and next buttons enabled.
         expNotificationView.setViewVisibility(R.id.notification_expanded_base_previous, View.VISIBLE);
@@ -386,10 +408,10 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
         //Set the album art.
         Picasso.with(this)
-                .load(mCurrentTrack.track.album.images.get(2).url)
+                .load(currentTrack.track.album.images.get(1).url)
                 .into(expNotificationView, R.id.notification_expanded_base_image, mNotificationId, notification);
         Picasso.with(this)
-                .load(mCurrentTrack.track.album.images.get(2).url)
+                .load(currentTrack.track.album.images.get(1).url)
                 .into(notificationView, R.id.notification_base_image, mNotificationId, notification);
 
         return notification;

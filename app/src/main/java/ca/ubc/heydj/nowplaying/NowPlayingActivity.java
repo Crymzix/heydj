@@ -28,6 +28,7 @@ import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.PlayTrackEvent;
+import ca.ubc.heydj.services.BroadcasterService;
 import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
@@ -184,8 +185,10 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
             case R.id.host_button:
                 if (((ToggleButton) v).isChecked()) {
                     mBroadcastStarted = true;
+                    startService(new Intent(this, BroadcasterService.class));
                     connect();
                 } else {
+                    stopService(new Intent(this, BroadcasterService.class));
                     disconnect();
                 }
                 break;
@@ -222,40 +225,38 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         mTrackBar.setProgress(audioFeedbackEvent.getPlayerState().positionInMs);
         mTrackBar.setMax(audioFeedbackEvent.getPlayerState().durationInMs);
 
-        if (mMain.isBroadcasting()) {
-            mHostButton.setChecked(true);
+        if (audioFeedbackEvent.getPlayerState().playing) {
 
-            if (getGoogleApiClient().isConnected()) {
-                if (audioFeedbackEvent.getPlayerState().playing) {
+            BroadcastedPlaylist broadcastedPlaylist = new BroadcastedPlaylist();
+            broadcastedPlaylist.playlist = audioFeedbackEvent.getTracks();
+            broadcastedPlaylist.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
+            broadcastedPlaylist.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
+            broadcastedPlaylist.host_id = mMain.getUniqueID();
 
-                    BroadcastedPlaylist broadcastedPlaylist = new BroadcastedPlaylist();
-                    broadcastedPlaylist.playlist = audioFeedbackEvent.getTracks();
-                    broadcastedPlaylist.position_ms = audioFeedbackEvent.getPlayerState().positionInMs;
-                    broadcastedPlaylist.current_track_index = audioFeedbackEvent.getCurrentTrackIndex();
-                    broadcastedPlaylist.host_id = mMain.getUniqueID();
+            switch (audioFeedbackEvent.getType()) {
 
-                    switch (audioFeedbackEvent.getType()) {
-
-                        case AudioFeedbackEvent.STARTED:
-                        case AudioFeedbackEvent.TRACK_CHANGED:
-                            mTrackPager.setCurrentItem(audioFeedbackEvent.getCurrentTrackIndex(), true);
-                            broadcastString(mGson.toJson(broadcastedPlaylist));
-                            Log.i(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
-                            break;
+                case AudioFeedbackEvent.STARTED:
+                case AudioFeedbackEvent.TRACK_CHANGED:
+                    mTrackPager.setCurrentItem(audioFeedbackEvent.getCurrentTrackIndex(), true);
+                    if (mMain.isBroadcasting() && getGoogleApiClient().isConnected()) {
+                        broadcastString(mGson.toJson(broadcastedPlaylist), null);
                     }
-
-                    if (mBroadcastStarted) {
-                        broadcastString(mGson.toJson(broadcastedPlaylist));
-                        mBroadcastStarted = false;
-                        Log.i(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
-                    }
-
-                }
+                    Log.i(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
+                    break;
             }
-        } else {
-            mHostButton.setChecked(false);
+
+            if (mBroadcastStarted) {
+                if (mMain.isBroadcasting() && getGoogleApiClient().isConnected()) {
+                    broadcastString(mGson.toJson(broadcastedPlaylist), null);
+                }
+                mBroadcastStarted = false;
+                Log.i(TAG, "publish: currentTrackIndex: " + String.valueOf(broadcastedPlaylist.current_track_index));
+            }
         }
 
+        if (audioFeedbackEvent.getType() == AudioFeedbackEvent.TRACK_QUEUED) {
+            mTracksAdapter.insertQueuedTrack(mTrackPager.getCurrentItem() + 1, audioFeedbackEvent.getQueuedTrack());
+        }
     }
 
     @Override
@@ -296,6 +297,12 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         public int getCount() {
             return mTracks.size();
         }
+
+        public void insertQueuedTrack(int position, SavedTrack savedTrack) {
+            mTracks.add(position, savedTrack);
+            notifyDataSetChanged();
+        }
+
     }
 
 }
