@@ -69,15 +69,16 @@
     </RelativeLayout>
 
     <include
-        layout="@layout/toolbar_transparent"
+        layout="@layout/toolbar_nowplaying"
         android:id="@+id/toolbar" />
 
     <android.support.v4.view.ViewPager
         android:layout_below="@+id/toolbar"
         android:layout_above="@+id/controls_container"
+        android:layout_marginBottom="10dp"
         android:id="@+id/track_pager"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"></android.support.v4.view.ViewPager>
+        android:layout_height="match_parent"/>
 
     <SeekBar
         android:thumbTint="@color/colorWhite"

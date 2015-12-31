@@ -22,7 +22,6 @@ import io.realm.RealmObject;
 public class AsyncBuildLibraryTask extends AsyncTask<String, String, Void> {
 
     private Context mContext;
-    private Realm mRealm;
 
     private HashMap<String, Integer> mAlbumsCountMap = new HashMap<String, Integer>();
     private HashMap<String, Integer> mSongsCountMap = new HashMap<String, Integer>();
@@ -30,9 +29,10 @@ public class AsyncBuildLibraryTask extends AsyncTask<String, String, Void> {
     private HashMap<String, Integer> mGenresSongCountHashMap = new HashMap<String, Integer>();
     private HashMap<String, Uri> mMediaStoreAlbumArtMap = new HashMap<String, Uri>();
 
+    private AsyncBuildLibraryListener mListener;
+
     public AsyncBuildLibraryTask(Context context) {
         this.mContext = context;
-        this.mRealm = Realm.getInstance(context);
     }
 
     @Override
@@ -54,6 +54,24 @@ public class AsyncBuildLibraryTask extends AsyncTask<String, String, Void> {
         Uri uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
         String selection = MediaStore.Audio.Media.IS_MUSIC + "!= 0";
         Cursor mediaStoreCursor = contentResolver.query(uri, null, selection, null, null);
+        if (mediaStoreCursor != null) {
+            saveMediaToRealmDB(mediaStoreCursor);
+            mediaStoreCursor.close();
+        }
+
+        return null;
+    }
+
+    @Override
+    protected void onPostExecute(Void aVoid) {
+        super.onPostExecute(aVoid);
+
+        if (mListener != null) {
+            mListener.onFinished();
+        }
+    }
+
+    private void saveMediaToRealmDB(Cursor mediaStoreCursor) {
 
         if (mediaStoreCursor != null) {
 
@@ -88,6 +106,8 @@ public class AsyncBuildLibraryTask extends AsyncTask<String, String, Void> {
             }
 
             Date date = new Date();
+            Realm realm = Realm.getInstance(mContext);
+            realm.beginTransaction();
             for (int i = 0; i < mediaStoreCursor.getCount(); i++) {
                 mediaStoreCursor.moveToPosition(i);
 
@@ -198,20 +218,17 @@ public class AsyncBuildLibraryTask extends AsyncTask<String, String, Void> {
                 track.setNumberOfTracks(numberOfTracks);
                 track.setNumberOfSongsInGenre(numberOfSongsInGenre);
 
-                mRealm.beginTransaction();
-                mRealm.copyToRealmOrUpdate(track);
-                mRealm.commitTransaction();
+                realm.copyToRealmOrUpdate(track);
             }
+            realm.commitTransaction();
         }
-
-        return null;
     }
 
     private void buildGenresLibrary() {
 
         //Get a cursor of all genres in MediaStore.
         Cursor genresCursor = mContext.getContentResolver().query(MediaStore.Audio.Genres.EXTERNAL_CONTENT_URI,
-                new String[] { MediaStore.Audio.Genres._ID, MediaStore.Audio.Genres.NAME },
+                new String[]{MediaStore.Audio.Genres._ID, MediaStore.Audio.Genres.NAME},
                 null,
                 null,
                 null);
@@ -376,6 +393,14 @@ public class AsyncBuildLibraryTask extends AsyncTask<String, String, Void> {
         }
 
         return output;
+    }
+
+    public void setListener(AsyncBuildLibraryListener listener) {
+        this.mListener = listener;
+    }
+
+    public interface AsyncBuildLibraryListener {
+        void onFinished();
     }
 
 }

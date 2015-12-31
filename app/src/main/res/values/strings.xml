@@ -9,6 +9,7 @@
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
 
+    <string name="action_queue">Playlist Queue</string>
     <string name="action_settings">Settings</string>
     <string name="local_playlist_title">Local Playlist</string>
     <string name="queuing_title">Queuing</string>

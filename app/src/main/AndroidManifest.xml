@@ -87,6 +87,7 @@
 
         <service android:name=".services.BroadcasterService" />
         <service android:name=".services.SpotifyAudioPlaybackService" />
+        <service android:name=".services.BuildMusicLibraryService" />
 
     </application>
 

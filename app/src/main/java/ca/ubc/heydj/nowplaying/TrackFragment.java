@@ -42,12 +42,8 @@ public class TrackFragment extends Fragment {
         Track track = getArguments().getParcelable(TRACK_KEY);
 
         ImageView albumImage = (ImageView) view.findViewById(R.id.album_image);
-        TextView trackTitle = (TextView) view.findViewById(R.id.track_title);
-        TextView trackArtist = (TextView) view.findViewById(R.id.track_artist);
         TextView trackAlbum = (TextView) view.findViewById(R.id.track_album);
 
-        trackTitle.setText(track.name);
-        trackArtist.setText(track.artists.get(0).name);
         trackAlbum.setText(track.album.name);
         Picasso.with(getActivity())
                 .load(track.album.images.get(0).url)

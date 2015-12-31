@@ -14,10 +14,13 @@ import android.support.v4.content.ContextCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.SeekBar;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.ToggleButton;
 
 import java.util.List;
@@ -56,6 +59,9 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
     private TracksPagerAdapter mTracksAdapter;
     private ToggleButton mHostButton;
     private SeekBar mTrackBar;
+    private TextView mTrackTitle;
+    private TextView mTrackArtist;
+
 
     // use to make sure we publish a message right away when initiating broadcast
     private boolean mBroadcastStarted = true;
@@ -79,6 +85,9 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
             }
         });
 
+        mTrackTitle = (TextView) toolbar.findViewById(R.id.track_title);
+        mTrackArtist = (TextView) toolbar.findViewById(R.id.track_artist);
+
         mPlayButton = (FloatingActionButton) findViewById(R.id.play_button);
         mPlayButton.setOnClickListener(this);
         mPauseButton = (FloatingActionButton) findViewById(R.id.pause_button);
@@ -101,6 +110,9 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         mTrackPager.setAdapter(mTracksAdapter);
         mTrackPager.setCurrentItem(mCurrentTrackIndex, true);
         mTrackPager.addOnPageChangeListener(this);
+        SavedTrack currentTrack = mCurrentTracks.get(mCurrentTrackIndex);
+        mTrackTitle.setText(currentTrack.track.name);
+        mTrackArtist.setText(currentTrack.track.artists.get(0).name);
 
     }
 
@@ -125,6 +137,8 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         }
         mCurrentTrackIndex = position;
         mTrackBar.setMax((int) mCurrentTracks.get(position).track.duration_ms);
+        mTrackTitle.setText(mCurrentTracks.get(position).track.name);
+        mTrackArtist.setText(mCurrentTracks.get(position).track.artists.get(0).name);
     }
 
     @Override
@@ -256,6 +270,7 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
 
         if (audioFeedbackEvent.getType() == AudioFeedbackEvent.TRACK_QUEUED) {
             mTracksAdapter.insertQueuedTrack(mTrackPager.getCurrentItem() + 1, audioFeedbackEvent.getQueuedTrack());
+            mCurrentTracks.add(mTrackPager.getCurrentItem() + 1, audioFeedbackEvent.getQueuedTrack());
         }
     }
 
@@ -305,4 +320,21 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
 
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.now_playing, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+
+        if (id == R.id.action_queue) {
+
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
 }

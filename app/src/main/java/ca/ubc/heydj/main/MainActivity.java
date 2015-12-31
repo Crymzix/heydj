@@ -44,6 +44,7 @@ import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.PlayTrackEvent;
+import ca.ubc.heydj.media.LocalMediaFragment;
 import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.NearbyEvent;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
@@ -157,8 +158,9 @@ public class MainActivity extends BaseActivity
         ListView menuListView = (ListView) findViewById(R.id.menu_items);
         menuListView.setOnItemClickListener(this);
         List<MenuItemsAdapter.MenuItem> menuItems = new ArrayList<>();
-        menuItems.add(new MenuItemsAdapter.MenuItem(R.drawable.ic_library, "Library"));
+        menuItems.add(new MenuItemsAdapter.MenuItem(R.drawable.ic_library, "Online Library"));
         menuItems.add(new MenuItemsAdapter.MenuItem(R.drawable.ic_hosts, "Nearby Hosts"));
+        menuItems.add(new MenuItemsAdapter.MenuItem(R.drawable.ic_local_media, "Local Media"));
         menuListView.setAdapter(new MenuItemsAdapter(this, menuItems));
 
     }
@@ -261,7 +263,9 @@ public class MainActivity extends BaseActivity
                 break;
 
             case 2:
-
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.container, new LocalMediaFragment(), NearbyBroadcastersFragment.TAG)
+                        .commit();
                 break;
 
             default:

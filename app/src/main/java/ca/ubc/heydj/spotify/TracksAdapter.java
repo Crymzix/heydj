@@ -11,6 +11,7 @@ import android.widget.TextView;
 
 import com.malinskiy.superrecyclerview.swipe.BaseSwipeAdapter;
 import com.malinskiy.superrecyclerview.swipe.SwipeLayout;
+import com.spotify.sdk.android.player.PlayerState;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +41,7 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     private List<Integer> mQueuedTracks;
 
     private boolean mIsPlaying = false;
-    private int mCurrentSelectedIndex = -1;
+    private String mPlayingTrackUri = null;
 
 
     public TracksAdapter(Context context, List<SavedTrack> tracks) {
@@ -102,7 +103,7 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 });
                 viewHolder.divider.setBackgroundResource(R.drawable.divider_blue_drawable);
 
-                if (mCurrentSelectedIndex == position) {
+                if (mPlayingTrackUri != null && mPlayingTrackUri.equals(track.uri)) {
                     viewHolder.playState.setVisibility(View.VISIBLE);
                     if (mIsPlaying) {
                         viewHolder.playState.setText(R.string.playing_text);
@@ -164,7 +165,7 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
                 });
                 swipeViewHolder.divider.setBackgroundResource(R.drawable.divider_orange_drawable);
 
-                if (mCurrentSelectedIndex == position) {
+                if (mPlayingTrackUri != null && mPlayingTrackUri.equals(track.uri)) {
                     swipeViewHolder.playState.setVisibility(View.VISIBLE);
                     if (mIsPlaying) {
                         swipeViewHolder.playState.setText(R.string.playing_text);
@@ -179,10 +180,12 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         }
     }
 
-    public void setTrackState(boolean isPlaying, int position) {
-        mIsPlaying = isPlaying;
-        mCurrentSelectedIndex = position;
-        notifyDataSetChanged();
+    public void setTrackState(PlayerState playerState) {
+        if (playerState != null) {
+            mIsPlaying = playerState.playing;
+            mPlayingTrackUri = playerState.trackUri;
+            notifyDataSetChanged();
+        }
     }
 
     public void addQueuedTrack(int position, SavedTrack queuedTrack) {

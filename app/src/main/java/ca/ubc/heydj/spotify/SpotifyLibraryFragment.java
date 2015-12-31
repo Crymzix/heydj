@@ -102,13 +102,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
     }
 
     public void onEvent(AudioFeedbackEvent audioFeedbackEvent) {
-        mTracksAdapter.setTrackState(audioFeedbackEvent.getPlayerState().playing, audioFeedbackEvent.getCurrentTrackIndex());
-
-        switch (audioFeedbackEvent.getType()) {
-            case AudioFeedbackEvent.TRACK_QUEUED:
-                mTracksAdapter.addQueuedTrack(audioFeedbackEvent.getCurrentTrackIndex() + 1, audioFeedbackEvent.getQueuedTrack());
-                break;
-        }
+        mTracksAdapter.setTrackState(audioFeedbackEvent.getPlayerState());
     }
 
     /**
