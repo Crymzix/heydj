@@ -16,6 +16,8 @@
     <string name="queued_message">Queued</string>
     <string name="playing_text">playing</string>
     <string name="paused_text">paused</string>
+    <string name="currently_playing_text">Currently Playing</string>
+    <string name="current_queue_text">Current Queue</string>
 
     <string name="unknown_artist">Unknown Artist</string>
     <string name="unknown_album">Unknown Album</string>
@@ -26,5 +28,8 @@
     <string name="song_small">song</string>
     <string name="albums_small">albums</string>
     <string name="songs_small">songs</string>
+
+    <string name="queue_action_text">Queue</string>
+    <string name="add_action_text">Add</string>
 
 </resources>

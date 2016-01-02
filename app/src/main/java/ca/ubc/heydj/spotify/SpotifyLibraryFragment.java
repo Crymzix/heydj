@@ -70,7 +70,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
         spotifyService.getMySavedTracks(new Callback<Pager<SavedTrack>>() {
             @Override
             public void success(Pager<SavedTrack> savedTrackPager, Response response) {
-                mTracksAdapter = new TracksAdapter(getActivity(), savedTrackPager.items);
+                mTracksAdapter = new TracksAdapter(getActivity(), savedTrackPager.items, false);
                 mTracksRecyclerView.setAdapter(mTracksAdapter);
                 mTracksAdapter.setOnItemClickListener(SpotifyLibraryFragment.this);
             }

@@ -1,6 +1,7 @@
 package ca.ubc.heydj.models;
 
 import io.realm.RealmObject;
+import io.realm.annotations.PrimaryKey;
 
 /**
  * Object to be used with the Realm DB
@@ -8,6 +9,9 @@ import io.realm.RealmObject;
  * Created by Chris Li on 12/11/2015.
  */
 public class Track extends RealmObject{
+
+    @PrimaryKey
+    private String songId;
 
     private String songTitle;
     private String songArtist;
@@ -23,7 +27,6 @@ public class Track extends RealmObject{
     private long addedDate;
     private int rating;
     private String songSource;
-    private String songId;
     private String songSavedPosition;
     private String numberOfAlbums;
     private String numberOfTracks;

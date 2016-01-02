@@ -13,29 +13,22 @@
 
         <RelativeLayout
             android:id="@+id/background"
-            android:background="@color/colorPrimary"
+            android:background="@color/colorOrange"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <Button
-                android:id="@+id/add_button"
-                android:background="@drawable/outline_button_background"
+            <TextView
+                android:id="@+id/queued_message"
+                android:fontFamily="sans-serif-light"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="@string/queued_message"
+                android:layout_centerVertical="true"
+                android:layout_centerHorizontal="true"
+                android:textSize="18sp"
                 android:textColor="@android:color/white"
-                android:text="@string/add_action_text"
-                android:layout_centerInParent="true"
                 android:layout_width="wrap_content"
-                android:layout_height="40dp" />
-
-            <Button
-                android:id="@+id/queue_button"
-                android:layout_alignTop="@+id/add_button"
-                android:layout_toLeftOf="@+id/add_button"
-                android:layout_marginRight="20dp"
-                android:background="@drawable/outline_button_background"
-                android:textColor="@android:color/white"
-                android:text="@string/queue_action_text"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp" />
+                android:layout_height="wrap_content" />
 
         </RelativeLayout>
 

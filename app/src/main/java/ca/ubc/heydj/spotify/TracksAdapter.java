@@ -2,7 +2,6 @@ package ca.ubc.heydj.spotify;
 
 import android.content.Context;
 import android.support.v7.widget.RecyclerView;
-import android.util.SparseArray;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -32,6 +31,7 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
 
     private static final int VIEW_TYPE_NORMAL = 0;
     private static final int VIEW_TYPE_SWIPE = 1;
+    private static final int VIEW_TYPE_QUEUE = 2;
 
     private Context mContext;
     private LayoutInflater mLayoutInflater;
@@ -39,26 +39,33 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     private OnItemInteractionListener mOnItemInteractionListener = null;
     private MainApplication mMain;
     private List<Integer> mQueuedTracks;
+    private boolean mIsNormal = true;
+
 
     private boolean mIsPlaying = false;
     private String mPlayingTrackUri = null;
 
 
-    public TracksAdapter(Context context, List<SavedTrack> tracks) {
+    public TracksAdapter(Context context, List<SavedTrack> tracks, boolean isNormal) {
         this.mContext = context;
         this.mLayoutInflater = LayoutInflater.from(context);
         this.mTracks = tracks;
         this.mMain = (MainApplication) context.getApplicationContext();
         this.mQueuedTracks = new ArrayList<>();
+        this.mIsNormal = isNormal;
     }
 
     @Override
     public int getItemViewType(int position) {
 
         if (mMain.isQueuing()) {
-            return VIEW_TYPE_SWIPE;
+            return VIEW_TYPE_QUEUE;
         } else {
-            return VIEW_TYPE_NORMAL;
+            if (mIsNormal) {
+                return VIEW_TYPE_NORMAL;
+            } else {
+                return VIEW_TYPE_SWIPE;
+            }
         }
     }
 
@@ -70,13 +77,16 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         switch (viewType) {
 
             case VIEW_TYPE_NORMAL:
-                viewHolder = new ViewHolder(mLayoutInflater.inflate(R.layout.track_list_item, parent, false));
+                viewHolder = new ViewHolder(mLayoutInflater.inflate(R.layout.track_normal_list_item, parent, false));
+                break;
+
+            case VIEW_TYPE_QUEUE:
+                viewHolder = new QueueableViewHolder(mLayoutInflater.inflate(R.layout.track_queueable_list_item, parent, false));
                 break;
 
             case VIEW_TYPE_SWIPE:
-                viewHolder = new SwipeViewHolder(mLayoutInflater.inflate(R.layout.track_swipeable_list_item, parent, false));
+                viewHolder = new SwipeableViewHolder(mLayoutInflater.inflate(R.layout.track_swipeable_list_item, parent, false));
                 break;
-
         }
 
         return viewHolder;
@@ -90,93 +100,162 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         switch (getItemViewType(position)) {
 
             case VIEW_TYPE_NORMAL:
-                ViewHolder viewHolder = (ViewHolder) holder;
-                viewHolder.trackTitle.setText(track.name);
-                viewHolder.trackArtist.setText(track.artists.get(0).name);
-                viewHolder.itemView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (mOnItemInteractionListener != null) {
-                            mOnItemInteractionListener.onItemClick(position, track);
-                        }
-                    }
-                });
-                viewHolder.divider.setBackgroundResource(R.drawable.divider_blue_drawable);
+                createNormalViewHolder(holder, track, position);
+                break;
 
-                if (mPlayingTrackUri != null && mPlayingTrackUri.equals(track.uri)) {
-                    viewHolder.playState.setVisibility(View.VISIBLE);
-                    if (mIsPlaying) {
-                        viewHolder.playState.setText(R.string.playing_text);
-                    } else {
-                        viewHolder.playState.setText(R.string.paused_text);
-                    }
-                } else {
-                    viewHolder.playState.setVisibility(View.GONE);
-                }
-
+            case VIEW_TYPE_QUEUE:
+                createQueueableViewHolder(holder, track, position);
                 break;
 
             case VIEW_TYPE_SWIPE:
-                SwipeViewHolder swipeViewHolder = (SwipeViewHolder) holder;
-                swipeViewHolder.trackTitle.setText(track.name);
-                swipeViewHolder.trackArtist.setText(track.artists.get(0).name);
-                swipeViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        if (mOnItemInteractionListener != null) {
-                            mOnItemInteractionListener.onItemClick(position, track);
-                        }
-                    }
-                });
-                swipeViewHolder.swipeLayout.setDragEdge(SwipeLayout.DragEdge.Left);
-                swipeViewHolder.swipeLayout.setShowMode(SwipeLayout.ShowMode.PullOut);
-                swipeViewHolder.swipeLayout.addSwipeListener(new SwipeLayout.SwipeListener() {
-                    @Override
-                    public void onStartOpen(SwipeLayout layout) {
-
-                    }
-
-                    @Override
-                    public void onOpen(SwipeLayout layout) {
-                        if (mOnItemInteractionListener != null) {
-                            mOnItemInteractionListener.onItemSwiped(position, track);
-                        }
-                    }
-
-                    @Override
-                    public void onStartClose(SwipeLayout layout) {
-
-                    }
-
-                    @Override
-                    public void onClose(SwipeLayout layout) {
-
-                    }
-
-                    @Override
-                    public void onUpdate(SwipeLayout layout, int leftOffset, int topOffset) {
-
-                    }
-
-                    @Override
-                    public void onHandRelease(SwipeLayout layout, float xvel, float yvel) {
-
-                    }
-                });
-                swipeViewHolder.divider.setBackgroundResource(R.drawable.divider_orange_drawable);
-
-                if (mPlayingTrackUri != null && mPlayingTrackUri.equals(track.uri)) {
-                    swipeViewHolder.playState.setVisibility(View.VISIBLE);
-                    if (mIsPlaying) {
-                        swipeViewHolder.playState.setText(R.string.playing_text);
-                    } else {
-                        swipeViewHolder.playState.setText(R.string.paused_text);
-                    }
-                } else {
-                    swipeViewHolder.playState.setVisibility(View.GONE);
-                }
-
+                createSwipeableViewHolder(holder, track, position);
                 break;
+        }
+    }
+
+    private void createNormalViewHolder(RecyclerView.ViewHolder holder, final Track track, final int position) {
+        ViewHolder viewHolder = (ViewHolder) holder;
+        viewHolder.trackTitle.setText(track.name);
+        viewHolder.trackArtist.setText(track.artists.get(0).name);
+        viewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mOnItemInteractionListener != null) {
+                    mOnItemInteractionListener.onItemClick(position, track);
+                }
+            }
+        });
+        viewHolder.divider.setBackgroundResource(R.drawable.divider_blue_drawable);
+
+        if (mPlayingTrackUri != null && mPlayingTrackUri.equals(track.uri)) {
+            viewHolder.playState.setVisibility(View.VISIBLE);
+            if (mIsPlaying) {
+                viewHolder.playState.setText(R.string.playing_text);
+            } else {
+                viewHolder.playState.setText(R.string.paused_text);
+            }
+        } else {
+            viewHolder.playState.setVisibility(View.GONE);
+        }
+    }
+
+    private void createSwipeableViewHolder(RecyclerView.ViewHolder holder, final Track track, final int position) {
+        SwipeableViewHolder swipeableViewHolder = (SwipeableViewHolder) holder;
+        swipeableViewHolder.trackTitle.setText(track.name);
+        swipeableViewHolder.trackArtist.setText(track.artists.get(0).name);
+        swipeableViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mOnItemInteractionListener != null) {
+                    mOnItemInteractionListener.onItemClick(position, track);
+                }
+            }
+        });
+        swipeableViewHolder.swipeLayout.setDragEdge(SwipeLayout.DragEdge.Right);
+        swipeableViewHolder.swipeLayout.setShowMode(SwipeLayout.ShowMode.PullOut);
+        swipeableViewHolder.swipeLayout.addSwipeListener(new SwipeLayout.SwipeListener() {
+            @Override
+            public void onStartOpen(SwipeLayout layout) {
+
+            }
+
+            @Override
+            public void onOpen(SwipeLayout layout) {
+
+            }
+
+            @Override
+            public void onStartClose(SwipeLayout layout) {
+
+            }
+
+            @Override
+            public void onClose(SwipeLayout layout) {
+
+            }
+
+            @Override
+            public void onUpdate(SwipeLayout layout, int leftOffset, int topOffset) {
+
+            }
+
+            @Override
+            public void onHandRelease(SwipeLayout layout, float xvel, float yvel) {
+
+            }
+        });
+        swipeableViewHolder.divider.setBackgroundResource(R.drawable.divider_blue_drawable);
+
+        if (mPlayingTrackUri != null && mPlayingTrackUri.equals(track.uri)) {
+            swipeableViewHolder.playState.setVisibility(View.VISIBLE);
+            if (mIsPlaying) {
+                swipeableViewHolder.playState.setText(R.string.playing_text);
+            } else {
+                swipeableViewHolder.playState.setText(R.string.paused_text);
+            }
+        } else {
+            swipeableViewHolder.playState.setVisibility(View.GONE);
+        }
+    }
+
+    private void createQueueableViewHolder(RecyclerView.ViewHolder holder, final Track track, final int position) {
+        QueueableViewHolder queueableViewHolder = (QueueableViewHolder) holder;
+        queueableViewHolder.trackTitle.setText(track.name);
+        queueableViewHolder.trackArtist.setText(track.artists.get(0).name);
+        queueableViewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mOnItemInteractionListener != null) {
+                    mOnItemInteractionListener.onItemClick(position, track);
+                }
+            }
+        });
+        queueableViewHolder.swipeLayout.setDragEdge(SwipeLayout.DragEdge.Right);
+        queueableViewHolder.swipeLayout.setShowMode(SwipeLayout.ShowMode.PullOut);
+        queueableViewHolder.swipeLayout.addSwipeListener(new SwipeLayout.SwipeListener() {
+            @Override
+            public void onStartOpen(SwipeLayout layout) {
+
+            }
+
+            @Override
+            public void onOpen(SwipeLayout layout) {
+                if (mOnItemInteractionListener != null) {
+                    mOnItemInteractionListener.onItemSwiped(position, track);
+                }
+            }
+
+            @Override
+            public void onStartClose(SwipeLayout layout) {
+
+            }
+
+            @Override
+            public void onClose(SwipeLayout layout) {
+
+            }
+
+            @Override
+            public void onUpdate(SwipeLayout layout, int leftOffset, int topOffset) {
+
+            }
+
+            @Override
+            public void onHandRelease(SwipeLayout layout, float xvel, float yvel) {
+
+            }
+        });
+        queueableViewHolder.divider.setBackgroundResource(R.drawable.divider_orange_drawable);
+
+        if (mPlayingTrackUri != null && mPlayingTrackUri.equals(track.uri)) {
+            queueableViewHolder.playState.setVisibility(View.VISIBLE);
+            if (mIsPlaying) {
+                queueableViewHolder.playState.setText(R.string.playing_text);
+            } else {
+                queueableViewHolder.playState.setText(R.string.paused_text);
+            }
+        } else {
+            queueableViewHolder.playState.setVisibility(View.GONE);
         }
     }
 
@@ -217,13 +296,13 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
 
-    public static class SwipeViewHolder extends BaseSwipeAdapter.BaseSwipeableViewHolder {
+    public static class QueueableViewHolder extends BaseSwipeAdapter.BaseSwipeableViewHolder {
         TextView trackTitle;
         TextView trackArtist;
         View divider;
         TextView playState;
 
-        public SwipeViewHolder(View v) {
+        public QueueableViewHolder(View v) {
             super(v);
             trackTitle = (TextView) v.findViewById(R.id.track_title);
             trackArtist = (TextView) v.findViewById(R.id.track_artist);
@@ -239,6 +318,21 @@ public class TracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         TextView playState;
 
         public ViewHolder(View v) {
+            super(v);
+            trackTitle = (TextView) v.findViewById(R.id.track_title);
+            trackArtist = (TextView) v.findViewById(R.id.track_artist);
+            divider = v.findViewById(R.id.divider);
+            playState = (TextView) v.findViewById(R.id.track_state);
+        }
+    }
+
+    public static class SwipeableViewHolder extends BaseSwipeAdapter.BaseSwipeableViewHolder {
+        TextView trackTitle;
+        TextView trackArtist;
+        View divider;
+        TextView playState;
+
+        public SwipeableViewHolder(View v) {
             super(v);
             trackTitle = (TextView) v.findViewById(R.id.track_title);
             trackArtist = (TextView) v.findViewById(R.id.track_artist);

@@ -3,6 +3,7 @@ package ca.ubc.heydj;
 import android.app.Application;
 import android.provider.Settings;
 
+import ca.ubc.heydj.services.BuildMusicLibraryService;
 import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
 
 /**
@@ -14,6 +15,7 @@ import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
 public class MainApplication extends Application {
 
     private SpotifyAudioPlaybackService mSpotifyAudioService;
+    private BuildMusicLibraryService mBuildMusicLibraryService;
     private String mSpotifyAccessToken;
 
     private boolean mIsBroadcasting = false;
@@ -74,5 +76,13 @@ public class MainApplication extends Application {
 
     public void setCurrentHostId(String mCurrentHostId) {
         this.mCurrentHostId = mCurrentHostId;
+    }
+
+    public BuildMusicLibraryService getBuildMusicLibraryService() {
+        return mBuildMusicLibraryService;
+    }
+
+    public void setBuildMusicLibraryService(BuildMusicLibraryService buildMusicLibraryService) {
+        this.mBuildMusicLibraryService = buildMusicLibraryService;
     }
 }

@@ -17,6 +17,9 @@ import io.realm.Realm;
 import io.realm.RealmObject;
 
 /**
+ * Builds the local music library (files stored on the device)
+ * and stores them in the Realm database
+ *
  * Created by Chris Li on 12/11/2015.
  */
 public class AsyncBuildLibraryTask extends AsyncTask<String, String, Void> {

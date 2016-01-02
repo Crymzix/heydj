@@ -6,6 +6,7 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
@@ -23,6 +24,7 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import ca.ubc.heydj.BaseActivity;
@@ -184,6 +186,7 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
                 incrementIndex++;
                 if (incrementIndex < mTracksAdapter.getCount()) {
                     mTrackPager.setCurrentItem(incrementIndex, true);
+                    mCurrentTrackIndex = incrementIndex;
                 }
                 break;
 
@@ -193,6 +196,7 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
                 decrementIndex--;
                 if (decrementIndex >= 0) {
                     mTrackPager.setCurrentItem(decrementIndex, true);
+                    mCurrentTrackIndex = decrementIndex;
                 }
                 break;
 
@@ -252,6 +256,8 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
                 case AudioFeedbackEvent.STARTED:
                 case AudioFeedbackEvent.TRACK_CHANGED:
                     mTrackPager.setCurrentItem(audioFeedbackEvent.getCurrentTrackIndex(), true);
+                    mCurrentTrackIndex = audioFeedbackEvent.getCurrentTrackIndex();
+
                     if (mMain.isBroadcasting() && getGoogleApiClient().isConnected()) {
                         broadcastString(mGson.toJson(broadcastedPlaylist), null);
                     }
@@ -331,7 +337,10 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
         int id = item.getItemId();
 
         if (id == R.id.action_queue) {
-
+            Intent intent = new Intent(this, NowPlayingListActivity.class);
+            intent.putParcelableArrayListExtra(SAVED_TRACKS_KEY, (ArrayList<? extends Parcelable>) mCurrentTracks);
+            intent.putExtra(CURRENT_TRACK_POSITION_KEY, mCurrentTrackIndex);
+            startActivity(intent);
             return true;
         }
 
