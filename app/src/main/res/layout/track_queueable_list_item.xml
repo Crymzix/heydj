@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:swipe="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:background="@android:color/black"
+    android:layout_height="wrap_content">
+
+    <com.malinskiy.superrecyclerview.swipe.SwipeLayout
+        android:id="@id/recyclerview_swipe"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+
+        <RelativeLayout
+            android:id="@+id/background"
+            android:background="@color/colorOrange"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/queued_message"
+                android:fontFamily="sans-serif-light"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:text="@string/queued_message"
+                android:layout_centerVertical="true"
+                android:layout_centerHorizontal="true"
+                android:textSize="18sp"
+                android:textColor="@android:color/white"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+        </RelativeLayout>
+
+
+        <RelativeLayout
+            android:id="@+id/swipe_view"
+            android:layout_width="match_parent"
+            android:background="@android:color/black"
+            android:paddingLeft="10dp"
+            android:paddingTop="15dp"
+            android:paddingRight="10dp"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:visibility="gone"
+                android:id="@+id/track_state"
+                android:layout_centerVertical="true"
+                android:layout_alignParentRight="true"
+                android:layout_marginRight="10dp"
+                android:textSize="11sp"
+                android:textColor="@android:color/primary_text_dark"
+                android:text="@string/playing_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="10dp"
+                android:id="@+id/track_title"
+                android:layout_alignParentLeft="true"
+                android:layout_toLeftOf="@+id/track_state"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textSize="18sp"
+                android:textColor="@android:color/white"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+
+            <TextView
+                android:layout_marginLeft="10dp"
+                android:layout_marginRight="10dp"
+                android:layout_below="@id/track_title"
+                android:id="@+id/track_artist"
+                android:layout_alignParentLeft="true"
+                android:layout_toLeftOf="@+id/track_state"
+                android:ellipsize="end"
+                android:textSize="18sp"
+                android:fontFamily="sans-serif-light"
+                android:textColor="@android:color/white"
+                android:layout_width="wrap_content"
+                android:layout_marginBottom="15dp"
+                android:layout_height="wrap_content" />
+
+            <View
+                android:id="@+id/divider"
+                android:layout_alignParentBottom="true"
+                android:background="@drawable/divider_blue_drawable"
+                android:layout_width="wrap_content"
+                android:layout_height="1dp" />
+        </RelativeLayout>
+    </com.malinskiy.superrecyclerview.swipe.SwipeLayout>
+
+</RelativeLayout>

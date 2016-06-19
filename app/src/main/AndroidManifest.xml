@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="ca.ubc.heydj">
+
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.USE_CREDENTIALS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application
+        android:name=".MainApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+        <meta-data
+            android:name="com.google.android.nearby.messages.API_KEY"
+            android:value="@string/google_nearby_api_key" />
+
+        <activity
+            android:name=".main.MainActivity"
+            android:launchMode="singleTask"
+            android:label="@string/app_name"
+            android:theme="@style/AppTheme.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name="com.spotify.sdk.android.authentication.LoginActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name=".nowplaying.NowPlayingActivity"
+            android:theme="@style/TransparentActionBar" />
+
+        <activity
+            android:name=".main.BroadcastedPlaylistActivity"
+            android:theme="@style/TransparentActionBar"/>
+
+        <activity
+            android:name=".nowplaying.NowPlayingListActivity"
+            android:theme="@style/TransparentActionBar"/>
+
+        <!-- Widget/Notification Now Playing Activity Broadcast Receiver -->
+
+        <receiver android:name=".receivers.LaunchNowPlayingBroadcastReceiver">
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.LAUNCH_NOW_PLAYING_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Widget/Notification Play/Pause Broadcast Receiver -->
+
+        <receiver android:name=".receivers.PlayPauseBroadcastReceiver">
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.PLAY_PAUSE_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Widget/Notification Previous Broadcast Receiver -->
+
+        <receiver android:name=".receivers.PreviousBroadcastReceiver">
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.PREVIOUS_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Widget/Notification Next Broadcast Receiver -->
+
+        <receiver android:name=".receivers.NextBroadcastReceiver">
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.NEXT_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Stop Service Broadcast Receiver -->
+
+        <receiver android:name=".receivers.StopServiceBroadcastReceiver">
+            <intent-filter>
+                <action android:name="ca.ubc.heydj.player.STOP_SERVICE" />
+            </intent-filter>
+        </receiver>
+
+        <service android:name=".services.BroadcasterService" />
+        <service android:name=".services.AudioPlaybackService" />
+        <service android:name=".services.BuildMusicLibraryService" />
+
+    </application>
+
+</manifest>

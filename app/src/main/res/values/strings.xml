@@ -1,0 +1,35 @@
+<resources>
+    <string name="app_name">HeyDJ</string>
+    <string name="google_nearby_api_key">AIzaSyA93qYB3o_bQD--txlno13KdkX57ZQuYlc</string>
+    <string name="pubnub_publish_api_key">pub-c-a254a349-2ff6-4db6-bc74-33ef1d13500e </string>
+    <string name="pubnub_subscribe_api_key">sub-c-91c224ca-9da1-11e5-bdb6-0619f8945a4f </string>
+    <string name="spotify_client_id">7859065041164a61917d5e903777ef3a</string>
+    <string name="spotify_redirect_uri">example.com://callback</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+
+    <string name="action_queue">Playlist Queue</string>
+    <string name="action_settings">Settings</string>
+    <string name="local_playlist_title">Local Playlist</string>
+    <string name="queuing_title">Queuing</string>
+    <string name="queued_message">Queued</string>
+    <string name="playing_text">playing</string>
+    <string name="paused_text">paused</string>
+    <string name="currently_playing_text">Currently Playing</string>
+    <string name="current_queue_text">Current Queue</string>
+
+    <string name="unknown_artist">Unknown Artist</string>
+    <string name="unknown_album">Unknown Album</string>
+    <string name="unknown_title">Unknown Title</string>
+    <string name="unknown_genre">Unknown Genre</string>
+    <string name="unknown_album_artist">Unknown Album Artist</string>
+    <string name="album_small">album</string>
+    <string name="song_small">song</string>
+    <string name="albums_small">albums</string>
+    <string name="songs_small">songs</string>
+
+    <string name="queue_action_text">Queue</string>
+    <string name="add_action_text">Add</string>
+
+</resources>
