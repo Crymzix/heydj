@@ -14,7 +14,6 @@ import android.view.ViewGroup;
 import com.google.android.gms.common.api.Status;
 import com.google.gson.Gson;
 import com.malinskiy.superrecyclerview.SuperRecyclerView;
-import com.malinskiy.superrecyclerview.swipe.SwipeItemManagerInterface;
 import com.pubnub.api.PubnubError;
 
 import org.json.JSONException;
@@ -31,7 +30,7 @@ import ca.ubc.heydj.events.PlayTrackEvent;
 import ca.ubc.heydj.main.MainActivity;
 import ca.ubc.heydj.models.QueuedTrack;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
-import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
+import ca.ubc.heydj.services.AudioPlaybackService;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
@@ -117,7 +116,7 @@ public class SpotifyLibraryFragment extends Fragment implements TracksAdapter.On
     public void onItemClick(int position, Track selectedTrack) {
 
         // Create service if it hasn't been created and send PlayTrackEvent to it
-        Intent audioServiceIntent = new Intent(getActivity(), SpotifyAudioPlaybackService.class);
+        Intent audioServiceIntent = new Intent(getActivity(), AudioPlaybackService.class);
         audioServiceIntent.putExtra(MainActivity.SPOTIFY_ACCESS_TOKEN_KEY, ((MainActivity) getActivity()).getSpotifyAccessToken());
         getActivity().startService(audioServiceIntent);
         PlayTrackEvent playTrackEvent = new PlayTrackEvent();

@@ -1,4 +1,4 @@
-package ca.ubc.heydj.media;
+package ca.ubc.heydj.localmedia;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 
 import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.BuildLibraryEvent;
+import ca.ubc.heydj.events.PlayTrackEvent;
 import ca.ubc.heydj.models.Track;
 import ca.ubc.heydj.services.BuildMusicLibraryService;
 import de.greenrobot.event.EventBus;
@@ -27,6 +28,7 @@ public class LocalMediaFragment extends Fragment {
     private Realm mRealm;
 
     private RecyclerView mTracksRecyclerView;
+    private RealmTracksAdapter mRealmTracksAdapter;
 
     @Nullable
     @Override
@@ -57,8 +59,17 @@ public class LocalMediaFragment extends Fragment {
     public void onEvent(BuildLibraryEvent buildLibraryEvent) {
         RealmQuery<Track> query = mRealm.where(Track.class);
         RealmResults<Track> queryResults = query.findAll();
-        RealmTracksAdapter realmTracksAdapter = new RealmTracksAdapter(getActivity(), queryResults);
-        mTracksRecyclerView.setAdapter(realmTracksAdapter);
+        mRealmTracksAdapter = new RealmTracksAdapter(getActivity(), queryResults);
+        mTracksRecyclerView.setAdapter(mRealmTracksAdapter);
+        mRealmTracksAdapter.setOnItemClickListener(new RealmTracksAdapter.OnItemClickListener() {
+            @Override
+            public void onItemClick(Track track) {
+                PlayTrackEvent playTrackEvent = new PlayTrackEvent();
+                playTrackEvent.setTrack(track);
+                EventBus.getDefault().postSticky(playTrackEvent);
+            }
+        });
+
     }
 
 }

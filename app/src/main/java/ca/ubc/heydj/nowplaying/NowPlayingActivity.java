@@ -1,10 +1,8 @@
 package ca.ubc.heydj.nowplaying;
 
 import android.content.Intent;
-import android.content.res.Resources;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
-import android.graphics.drawable.TransitionDrawable;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.support.design.widget.FloatingActionButton;
@@ -18,9 +16,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.CompoundButton;
 import android.widget.SeekBar;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
@@ -34,7 +30,7 @@ import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.PlayTrackEvent;
 import ca.ubc.heydj.services.BroadcasterService;
-import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
+import ca.ubc.heydj.services.AudioPlaybackService;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
@@ -155,9 +151,9 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
 
             case R.id.play_button:
 
-                if (mMain.getSpotifyAudioService() == null) {
+                if (mMain.getAudioService() == null) {
                     if (mCurrentTracks != null) {
-                        startService(new Intent(this, SpotifyAudioPlaybackService.class));
+                        startService(new Intent(this, AudioPlaybackService.class));
                         PlayTrackEvent playTrackEvent = new PlayTrackEvent();
                         playTrackEvent.setCurrentTrackIndex(mCurrentTrackIndex);
                         playTrackEvent.setUserTracks(mCurrentTracks);
@@ -173,7 +169,7 @@ public class NowPlayingActivity extends BaseActivity implements ViewPager.OnPage
 
             case R.id.pause_button:
 
-                if (mMain.getSpotifyAudioService() != null) {
+                if (mMain.getAudioService() != null) {
                     EventBus.getDefault().post(new AudioPlaybackEvent(AudioPlaybackEvent.PLAY_PAUSE));
                     mPauseButton.setVisibility(View.INVISIBLE);
                     mPlayButton.setVisibility(View.VISIBLE);

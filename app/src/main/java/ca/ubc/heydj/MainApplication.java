@@ -4,7 +4,7 @@ import android.app.Application;
 import android.provider.Settings;
 
 import ca.ubc.heydj.services.BuildMusicLibraryService;
-import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
+import ca.ubc.heydj.services.AudioPlaybackService;
 
 /**
  * Singleton class that provides access to common objects
@@ -14,7 +14,7 @@ import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
  */
 public class MainApplication extends Application {
 
-    private SpotifyAudioPlaybackService mSpotifyAudioService;
+    private AudioPlaybackService mAudioService;
     private BuildMusicLibraryService mBuildMusicLibraryService;
     private String mSpotifyAccessToken;
 
@@ -54,12 +54,12 @@ public class MainApplication extends Application {
         this.mIsQueuing = mIsListening;
     }
 
-    public SpotifyAudioPlaybackService getSpotifyAudioService() {
-        return mSpotifyAudioService;
+    public AudioPlaybackService getAudioService() {
+        return mAudioService;
     }
 
-    public void setSpotifyAudioService(SpotifyAudioPlaybackService mSpotifyAudioService) {
-        this.mSpotifyAudioService = mSpotifyAudioService;
+    public void setAudioService(AudioPlaybackService mSpotifyAudioService) {
+        this.mAudioService = mSpotifyAudioService;
     }
 
     public String getSpotifyAccessToken() {

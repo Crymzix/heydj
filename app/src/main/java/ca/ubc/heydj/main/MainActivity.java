@@ -44,11 +44,11 @@ import ca.ubc.heydj.R;
 import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.PlayTrackEvent;
-import ca.ubc.heydj.media.LocalMediaFragment;
+import ca.ubc.heydj.localmedia.LocalMediaFragment;
 import ca.ubc.heydj.models.BroadcastedPlaylist;
 import ca.ubc.heydj.events.NearbyEvent;
 import ca.ubc.heydj.nowplaying.NowPlayingActivity;
-import ca.ubc.heydj.services.SpotifyAudioPlaybackService;
+import ca.ubc.heydj.services.AudioPlaybackService;
 import ca.ubc.heydj.services.BroadcasterService;
 import ca.ubc.heydj.spotify.SpotifyLibraryFragment;
 import ca.ubc.heydj.utils.BlurTransformation;
@@ -168,7 +168,7 @@ public class MainActivity extends BaseActivity
     @Override
     protected void onDestroy() {
         stopService(new Intent(this, BroadcasterService.class));
-        stopService(new Intent(this, SpotifyAudioPlaybackService.class));
+        stopService(new Intent(this, AudioPlaybackService.class));
         EventBus.getDefault().unregister(this);
         super.onDestroy();
     }
@@ -218,7 +218,7 @@ public class MainActivity extends BaseActivity
                             .replace(R.id.container, new SpotifyLibraryFragment())
                             .commit();
 
-                    Intent audioPlayService = new Intent(this, SpotifyAudioPlaybackService.class);
+                    Intent audioPlayService = new Intent(this, AudioPlaybackService.class);
                     audioPlayService.putExtra(SPOTIFY_ACCESS_TOKEN_KEY, mMain.getSpotifyAccessToken());
                     startService(audioPlayService);
                 }
@@ -394,8 +394,8 @@ public class MainActivity extends BaseActivity
         switch (v.getId()) {
 
             case R.id.play_pause_toggle:
-                if (mMain.getSpotifyAudioService() == null) {
-                    startService(new Intent(this, SpotifyAudioPlaybackService.class));
+                if (mMain.getAudioService() == null) {
+                    startService(new Intent(this, AudioPlaybackService.class));
                     if (mCurrentTracks != null) {
                         PlayTrackEvent playTrackEvent = new PlayTrackEvent();
                         playTrackEvent.setCurrentTrackIndex(mCurrentTrackIndex);

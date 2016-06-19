@@ -1,4 +1,4 @@
-package ca.ubc.heydj.media;
+package ca.ubc.heydj.localmedia;
 
 import android.content.Context;
 import android.support.v7.widget.RecyclerView;
@@ -19,6 +19,7 @@ public class RealmTracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     private Context mContext;
     private LayoutInflater mLayoutInflater;
     private RealmResults<Track> mTracks;
+    private OnItemClickListener mListener;
 
     public RealmTracksAdapter(Context context, RealmResults<Track> tracks) {
         this.mContext = context;
@@ -34,17 +35,29 @@ public class RealmTracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
     @Override
     public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
 
-        Track track = mTracks.get(position);
+        final Track track = mTracks.get(position);
 
         ViewHolder viewHolder = (ViewHolder) holder;
         viewHolder.trackTitle.setText(track.getSongTitle());
         viewHolder.trackArtist.setText(track.getSongArtist());
         viewHolder.divider.setBackgroundResource(R.drawable.divider_blue_drawable);
+        viewHolder.itemView.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (mListener != null) {
+                    mListener.onItemClick(track);
+                }
+            }
+        });
     }
 
     @Override
     public int getItemCount() {
         return this.mTracks.size();
+    }
+
+    public void setOnItemClickListener(OnItemClickListener listener) {
+        this.mListener = listener;
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
@@ -60,5 +73,9 @@ public class RealmTracksAdapter extends RecyclerView.Adapter<RecyclerView.ViewHo
             divider = v.findViewById(R.id.divider);
             playState = (TextView) v.findViewById(R.id.track_state);
         }
+    }
+
+    public interface OnItemClickListener {
+        void onItemClick(Track track);
     }
 }

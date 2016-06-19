@@ -7,6 +7,7 @@ import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Handler;
 import android.os.IBinder;
 import android.support.annotation.Nullable;
@@ -15,6 +16,17 @@ import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
+import com.google.android.exoplayer.ExoPlaybackException;
+import com.google.android.exoplayer.ExoPlayer;
+import com.google.android.exoplayer.MediaCodecAudioTrackRenderer;
+import com.google.android.exoplayer.SampleSource;
+import com.google.android.exoplayer.extractor.Extractor;
+import com.google.android.exoplayer.extractor.ExtractorSampleSource;
+import com.google.android.exoplayer.extractor.mp3.Mp3Extractor;
+import com.google.android.exoplayer.upstream.Allocator;
+import com.google.android.exoplayer.upstream.DataSource;
+import com.google.android.exoplayer.upstream.DefaultAllocator;
+import com.google.android.exoplayer.upstream.DefaultUriDataSource;
 import com.spotify.sdk.android.player.Config;
 import com.spotify.sdk.android.player.ConnectionStateCallback;
 import com.spotify.sdk.android.player.PlayConfig;
@@ -26,7 +38,6 @@ import com.spotify.sdk.android.player.Spotify;
 import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 
 import ca.ubc.heydj.MainApplication;
@@ -35,7 +46,6 @@ import ca.ubc.heydj.events.AudioFeedbackEvent;
 import ca.ubc.heydj.events.AudioPlaybackEvent;
 import ca.ubc.heydj.events.PlayTrackEvent;
 import ca.ubc.heydj.models.QueuedTrack;
-import ca.ubc.heydj.nowplaying.NowPlayingActivity;
 import de.greenrobot.event.EventBus;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
@@ -44,9 +54,9 @@ import kaaes.spotify.webapi.android.models.SavedTrack;
  * <p/>
  * Created by Chris Li on 12/11/2015.
  */
-public class SpotifyAudioPlaybackService extends Service implements PlayerNotificationCallback, ConnectionStateCallback, PlayerStateCallback {
+public class AudioPlaybackService extends Service implements PlayerNotificationCallback, ConnectionStateCallback, PlayerStateCallback, ExoPlayer.Listener {
 
-    private static final String TAG = SpotifyAudioPlaybackService.class.getSimpleName();
+    private static final String TAG = AudioPlaybackService.class.getSimpleName();
 
     public static final int mNotificationId = 1156;
     private NotificationManager mNotificationManager;
@@ -57,7 +67,12 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
     public static final String NEXT_ACTION = "ca.ubc.heydj.player.NEXT_ACTION";
     public static final String STOP_SERVICE = "ca.ubc.heydj.player.STOP_SERVICE";
 
-    private Player mPlayer;
+    private static final int BUFFER_SEGMENT_SIZE = 64 * 1024;
+    private static final int BUFFER_SEGMENT_COUNT = 256;
+
+    // Spotify player
+    private Player mSpotifyPlayer;
+    private ExoPlayer mPlayer;
 
     private boolean mFirstRun = true;
     private boolean mIsPlaying = false;
@@ -78,20 +93,43 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         super.onCreate();
         mContext = getApplicationContext();
         mMain = (MainApplication) getApplication();
+        mMain.setAudioService(this);
+
+        mPlayer = ExoPlayer.Factory.newInstance(1);
+
         mHandler = new Handler();
         mNotificationManager = (NotificationManager) getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
         EventBus.getDefault().register(this);
-        mMain.setSpotifyAudioService(this);
         mFirstRun = true;
+    }
+
+    private void startMediaPlayer(Uri uri) {
+        DataSource dataSource = new DefaultUriDataSource(getApplicationContext(), TAG);
+        ExtractorSampleSource sampleSource = new ExtractorSampleSource(uri, dataSource, new Mp3Extractor(),
+                 new DefaultAllocator(BUFFER_SEGMENT_SIZE), BUFFER_SEGMENT_COUNT * BUFFER_SEGMENT_SIZE);
+        MediaCodecAudioTrackRenderer audioRenderer = new MediaCodecAudioTrackRenderer(sampleSource);
+        mPlayer.prepare(audioRenderer);
+        mPlayer.getPlayWhenReady();
+        mPlayer.addListener(this);
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
 
         if (intent != null) {
-            String spotifyAccessToken = mMain.getSpotifyAccessToken();
-            if (spotifyAccessToken != null && mFirstRun) {
-                setupSpotifyPlayer(spotifyAccessToken);
+            if (mFirstRun) {
+                String spotifyAccessToken = mMain.getSpotifyAccessToken();
+                if (spotifyAccessToken != null) {
+                    setupSpotifyPlayer(spotifyAccessToken);
+                }
+
+                PlayTrackEvent playTrackEvent = EventBus.getDefault().removeStickyEvent(PlayTrackEvent.class);
+                if (playTrackEvent != null) {
+                    if (playTrackEvent.getTrack() != null) {
+                        startMediaPlayer(Uri.parse(playTrackEvent.getTrack().getSongFilePath()));
+                    }
+                }
+
             }
         } else {
             Log.i(TAG, "No new intent data, service already started.");
@@ -105,10 +143,10 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         Spotify.getPlayer(playerConfig, this, new Player.InitializationObserver() {
             @Override
             public void onInitialized(Player player) {
-                mPlayer = player;
-                mPlayer.addConnectionStateCallback(SpotifyAudioPlaybackService.this);
-                mPlayer.addPlayerNotificationCallback(SpotifyAudioPlaybackService.this);
-                mPlayer.getPlayerState(SpotifyAudioPlaybackService.this);
+                mSpotifyPlayer = player;
+                mSpotifyPlayer.addConnectionStateCallback(AudioPlaybackService.this);
+                mSpotifyPlayer.addPlayerNotificationCallback(AudioPlaybackService.this);
+                mSpotifyPlayer.getPlayerState(AudioPlaybackService.this);
                 mFirstRun = false;
                 Log.i(TAG, "Spotify player initialized");
 
@@ -130,7 +168,12 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
     /*** Event bus subscribers ***/
 
     public void onEvent(PlayTrackEvent playTrackEvent) {
-        playSpotifyTrack(playTrackEvent);
+
+        if (playTrackEvent.getTrack() != null) {
+            startMediaPlayer(Uri.parse(playTrackEvent.getTrack().getSongFilePath()));
+        } else {
+            playSpotifyTrack(playTrackEvent);
+        }
     }
 
     public void onEvent(AudioPlaybackEvent audioPlaybackEvent) {
@@ -152,10 +195,10 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
             case AudioPlaybackEvent.PLAY_PAUSE:
                 if (mIsPlaying) {
-                    mPlayer.pause();
+                    mSpotifyPlayer.pause();
                     mIsPlaying = false;
                 } else {
-                    mPlayer.resume();
+                    mSpotifyPlayer.resume();
                     mIsPlaying = true;
                 }
 
@@ -164,7 +207,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
                 break;
 
             case AudioPlaybackEvent.NEXT:
-                mPlayer.skipToNext();
+                mSpotifyPlayer.skipToNext();
                 if (mCurrentTrackIndex + 1 < mPlaylist.size()) {
                     mCurrentTrackIndex++;
                 }
@@ -173,7 +216,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
                 break;
 
             case AudioPlaybackEvent.PREVIOUS:
-                mPlayer.skipToPrevious();
+                mSpotifyPlayer.skipToPrevious();
                 if (mCurrentTrackIndex - 1 >= 0) {
                     mCurrentTrackIndex--;
                 }
@@ -182,7 +225,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
                 break;
 
             case AudioPlaybackEvent.SCRUB:
-                mPlayer.seekToPosition(audioPlaybackEvent.getPositionInMs());
+                mSpotifyPlayer.seekToPosition(audioPlaybackEvent.getPositionInMs());
                 break;
         }
     }
@@ -212,7 +255,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         playConfig.withTrackIndex(playTrackEvent.getCurrentTrackIndex());
         mCurrentTrackIndex = playTrackEvent.getCurrentTrackIndex();
 
-        if (mPlayer != null) {
+        if (mSpotifyPlayer != null) {
 
             mHandler.removeCallbacks(mRunnable);
 
@@ -220,7 +263,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
             mRunnable = new Runnable() {
                 @Override
                 public void run() {
-                    mPlayer.getPlayerState(new PlayerStateCallback() {
+                    mSpotifyPlayer.getPlayerState(new PlayerStateCallback() {
                         @Override
                         public void onPlayerState(PlayerState playerState) {
                             AudioFeedbackEvent audioFeedbackEvent = new AudioFeedbackEvent();
@@ -244,7 +287,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
                                     audioFeedbackEvent.setType(AudioFeedbackEvent.TRACK_QUEUED);
                                     mCurrentTracks.add(mCurrentTrackIndex + 1, mQueuedTrack);
                                     audioFeedbackEvent.setPlaylist(mCurrentTracks);
-                                    mPlayer.queue(mQueuedTrack.track.uri);
+                                    mSpotifyPlayer.queue(mQueuedTrack.track.uri);
                                     mQueuedTrack = null;
                                 }
                             } else {
@@ -261,7 +304,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
             mHandler.post(mRunnable);
             mIsPlaying = true;
-            mPlayer.play(playConfig);
+            mSpotifyPlayer.play(playConfig);
             startForeground(mNotificationId, buildNotification());
         }
     }
@@ -275,8 +318,13 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
     @Override
     public void onDestroy() {
         Spotify.destroyPlayer(this);
+
+        if (mPlayer != null) {
+            mPlayer.release();
+        }
+
         EventBus.getDefault().unregister(this);
-        mMain.setSpotifyAudioService(null);
+        mMain.setAudioService(null);
         mHandler.removeCallbacks(mRunnable);
         super.onDestroy();
     }
@@ -335,7 +383,7 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
         //Open up the play screen when the user taps on the notification.
         Intent launchNowPlayingIntent = new Intent();
-        launchNowPlayingIntent.setAction(SpotifyAudioPlaybackService.LAUNCH_NOW_PLAYING_ACTION);
+        launchNowPlayingIntent.setAction(AudioPlaybackService.LAUNCH_NOW_PLAYING_ACTION);
         PendingIntent launchNowPlayingPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, launchNowPlayingIntent, 0);
         mNotificationBuilder.setContentIntent(launchNowPlayingPendingIntent);
 
@@ -345,19 +393,19 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
 
         //Initialize the notification layout buttons.
         Intent previousTrackIntent = new Intent();
-        previousTrackIntent.setAction(SpotifyAudioPlaybackService.PREVIOUS_ACTION);
+        previousTrackIntent.setAction(AudioPlaybackService.PREVIOUS_ACTION);
         PendingIntent previousTrackPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, previousTrackIntent, 0);
 
         Intent playPauseTrackIntent = new Intent();
-        playPauseTrackIntent.setAction(SpotifyAudioPlaybackService.PLAY_PAUSE_ACTION);
+        playPauseTrackIntent.setAction(AudioPlaybackService.PLAY_PAUSE_ACTION);
         PendingIntent playPauseTrackPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, playPauseTrackIntent, 0);
 
         Intent nextTrackIntent = new Intent();
-        nextTrackIntent.setAction(SpotifyAudioPlaybackService.NEXT_ACTION);
+        nextTrackIntent.setAction(AudioPlaybackService.NEXT_ACTION);
         PendingIntent nextTrackPendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, nextTrackIntent, 0);
 
         Intent stopServiceIntent = new Intent();
-        stopServiceIntent.setAction(SpotifyAudioPlaybackService.STOP_SERVICE);
+        stopServiceIntent.setAction(AudioPlaybackService.STOP_SERVICE);
         PendingIntent stopServicePendingIntent = PendingIntent.getBroadcast(mContext.getApplicationContext(), 0, stopServiceIntent, 0);
 
         //Check if audio is playing and set the appropriate play/pause button.
@@ -417,4 +465,18 @@ public class SpotifyAudioPlaybackService extends Service implements PlayerNotifi
         return notification;
     }
 
+    @Override
+    public void onPlayerStateChanged(boolean playWhenReady, int playbackState) {
+
+    }
+
+    @Override
+    public void onPlayWhenReadyCommitted() {
+
+    }
+
+    @Override
+    public void onPlayerError(ExoPlaybackException error) {
+
+    }
 }

@@ -2,6 +2,7 @@ package ca.ubc.heydj.events;
 
 import java.util.List;
 
+import ca.ubc.heydj.models.Track;
 import kaaes.spotify.webapi.android.models.SavedTrack;
 
 /**
@@ -15,6 +16,7 @@ public class PlayTrackEvent {
     private List<SavedTrack> userTracks;
     private int currentTrackIndex = 0;
 
+    private Track track = null;
 
     public List<SavedTrack> getUserTracks() {
         return userTracks;
@@ -30,5 +32,13 @@ public class PlayTrackEvent {
 
     public void setCurrentTrackIndex(int currentTrackIndex) {
         this.currentTrackIndex = currentTrackIndex;
+    }
+
+    public Track getTrack() {
+        return track;
+    }
+
+    public void setTrack(Track track) {
+        this.track = track;
     }
 }
